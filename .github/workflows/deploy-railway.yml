@@ -1,0 +1,51 @@
+# Automated deployment to Railway.app
+# Free tier: 500 hours/month
+#
+# Setup:
+#   1. Create an account at https://railway.app
+#   2. Create a new project and link this GitHub repository
+#   3. Go to your Railway project → Settings → Tokens → generate an API token
+#   4. Add the token as a GitHub secret named RAILWAY_TOKEN
+#      (Settings → Secrets and variables → Actions → New repository secret)
+#   5. Push to main – this workflow deploys automatically
+
+name: Deploy to Railway
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests before deploy
+        run: npm test
+        env:
+          TELEGRAM_TOKEN: ''
+          TELEGRAM_CHAT_ID: ''
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
