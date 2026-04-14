@@ -3,6 +3,7 @@ const Binance = require("node-binance-api");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const { sendNotification } = require("./telegram");
 
 const app = express();
 const server = http.createServer(app);
@@ -39,10 +40,11 @@ async function buy(price) {
   await binance.marketBuy("BTCUSDT", 0.0001);
 
   position = "LONG";
+  await sendNotification(`🟢 *COMPRA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
 }
 
 // 💸 VENDER
-async function sell() {
+async function sell(price) {
   if (!position) return;
 
   console.log("🔴 VENDIENDO BTC");
@@ -50,6 +52,7 @@ async function sell() {
   await binance.marketSell("BTCUSDT", 0.0001);
 
   position = null;
+  await sendNotification(`🔴 *VENTA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
 }
 
 // 📡 LOOP REAL
@@ -68,7 +71,7 @@ setInterval(async () => {
     console.log("💰", price, "🚦", sig);
 
     if (sig === "BUY") await buy(price);
-    if (sig === "SELL") await sell();
+    if (sig === "SELL") await sell(price);
 
     io.emit("data", {
       price,
@@ -77,10 +80,15 @@ setInterval(async () => {
     });
 
   } catch (e) {
-    console.log("ERROR:", e.body || e.message);
+    const errMsg = e.body || e.message;
+    console.log("ERROR:", errMsg);
+    await sendNotification(`⚠️ *Error en el bot*\n\`${errMsg}\``);
   }
 }, 3000);
 
 server.listen(3000, () => {
   console.log("🚀 BOT REAL ACTIVO en http://localhost:3000");
+  sendNotification("🚀 *Bot iniciado correctamente*\nMonitoreando BTCUSDT en Binance.").catch(err => {
+    console.error("[Telegram] Error al notificar inicio:", err.message);
+  });
 });
