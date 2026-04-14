@@ -1,7 +1,7 @@
 const screenshot = require("screenshot-desktop");
 const Tesseract = require("tesseract.js");
 const Jimp = require("jimp");
-const notifier = require("node-notifier");
+const { sendNotification } = require("./telegram");
 
 let historial = [];
 let saldo = 1000; // 💰 tu banca inicial
@@ -26,14 +26,13 @@ function analizar() {
   return { accion: "ESPERAR" };
 }
 
-function alerta(mensaje) {
+async function alerta(mensaje) {
   process.stdout.write('\x07');
-
-  notifier.notify({
-    title: "🔥 BOT HIGH FLYER",
-    message: mensaje,
-    sound: true
-  });
+  try {
+    await sendNotification(mensaje);
+  } catch (err) {
+    console.error("[alerta] Error al enviar notificación:", err.message);
+  }
 }
 
 async function capturar() {
@@ -68,9 +67,9 @@ async function capturar() {
         let decision = analizar();
 
         if (decision.accion === "ENTRAR") {
-          let msg = `🚨 ENTRAR\nRetiro: ${decision.retiro}\nRiesgo: ${decision.riesgo}`;
-          console.log(msg);
-          alerta(msg);
+          let msg = `🚨 *ENTRAR*\nRetiro: ${decision.retiro}\nRiesgo: ${decision.riesgo}`;
+          console.log(msg.replace(/\*/g, ""));
+          await alerta(msg);
         } else {
           console.log("⏳ ESPERAR");
         }
@@ -80,5 +79,8 @@ async function capturar() {
 }
 
 console.log("🤖 BOT PRO++ ACTIVADO");
+sendNotification("🤖 *BOT PRO++ ACTIVADO*\nAnalizando multiplicadores del juego Crash.").catch(err => {
+  console.error("[Telegram] Error al notificar inicio:", err.message);
+});
 
 setInterval(capturar, 4000);
