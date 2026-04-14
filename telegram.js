@@ -17,14 +17,13 @@ if (token) {
  */
 async function sendNotification(message) {
   if (!bot || !chatId) {
-    console.log("[Telegram] Notificación omitida (configura TELEGRAM_TOKEN y TELEGRAM_CHAT_ID en .env):", message);
     return;
   }
 
   try {
     await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
-  } catch (err) {
-    console.error("[Telegram] Error al enviar mensaje:", err.message);
+  } catch (_) {
+    // Silenciar errores de Telegram
   }
 }
 

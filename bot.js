@@ -1,9 +1,13 @@
 require("dotenv").config();
 const { sendNotification } = require("./telegram");
+const { mostrarEstado } = require("./mostrarEstado");
 
 // --- Historial de rondas ---
 let historial = [];
 const MAX_HISTORIAL = 200;
+
+// --- Banca ---
+let banca = 100;
 
 // --- Control anti-spam ---
 let ultimoMensaje = "";
@@ -167,7 +171,6 @@ async function enviarConControl(mensaje) {
   ultimoMensaje = mensaje;
   ultimoTiempoMensaje = Date.now();
 
-  console.log(mensaje.replace(/\*/g, "").replace(/_/g, ""));
   await sendNotification(mensaje);
 }
 
@@ -179,14 +182,17 @@ async function ciclo() {
   historial.push(nueva);
   if (historial.length > MAX_HISTORIAL) historial.shift();
 
-  console.log(`📊 Nueva ronda: ${nueva}x | Últimas 10: [${historial.slice(-10).join(", ")}]`);
-
-  if (historial.length < 10) return;
+  if (historial.length < 10) {
+    mostrarEstado({ estado: "ESPERAR" }, banca, nueva);
+    return;
+  }
 
   const { patron, descripcion } = detectarPatron();
   const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron);
 
   if (nivel === "ENTRAR") {
+    mostrarEstado({ estado: "ENTRAR", cashout: retiroSeguro }, banca, nueva);
+
     const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
     const msg =
       `🚨 *ENTRAR*\n\n` +
@@ -197,6 +203,8 @@ async function ciclo() {
       `_Patrón: ${descripcion}_`;
     await enviarConControl(msg);
   } else if (nivel === "ALTA") {
+    mostrarEstado({ estado: "ENTRAR", cashout: prediccion }, banca, nueva);
+
     const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
     const msg =
       `🔥 *POSIBLE ALTA*\n\n` +
@@ -205,16 +213,18 @@ async function ciclo() {
       `Posible explosión > *${prediccion}x*.\n` +
       `_Basado en: ${descripcion}_`;
     await enviarConControl(msg);
+  } else {
+    mostrarEstado({ estado: "ESPERAR" }, banca, nueva);
   }
 }
 
 // --- Inicialización ---
 (async () => {
-  console.log("🚀 Bot activo y analizando rondas.");
+  mostrarEstado({ estado: "ESPERAR" }, banca, null);
   try {
     await sendNotification("🚀 Bot activo y analizando rondas.");
-  } catch (err) {
-    console.error("[Telegram] Error al notificar inicio:", err.message);
+  } catch (_) {
+    // Silenciar errores de Telegram al inicio
   }
 
   setInterval(ciclo, 5000);
