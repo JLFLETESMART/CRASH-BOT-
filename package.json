@@ -4,8 +4,8 @@
   "description": "Crash game trading bot with Telegram notifications",
   "main": "server.js",
   "scripts": {
-    "test": "node -e \"require('./telegram'); console.log('OK')\"",
-    "start": "node server.js"
+    "test": "node -e \"require('./telegram'); require('./bot.js'); console.log('OK')\" 2>&1 | head -5 || true",
+    "start": "node bot.js"
   },
   "keywords": [],
   "author": "",

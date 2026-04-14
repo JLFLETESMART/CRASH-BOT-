@@ -1,13 +1,26 @@
 # CRASH-BOT 🤖
 
-Bot de trading automático para BTC/USDT en Binance con notificaciones por Telegram.
+Bot predictor de rondas tipo Aviator con notificaciones inteligentes por Telegram.
 
 ---
 
 ## ¿Qué hace?
 
-- **`server.js`** – Conecta con Binance, detecta señales de compra/venta usando medias móviles y ejecuta órdenes reales. Envía notificaciones a Telegram en cada operación.
-- **`bot.js`** – Captura pantalla, lee multiplicadores del juego Crash con OCR (Tesseract) y alerta cuando las condiciones son favorables para entrar.
+- **`bot.js`** – Analiza el historial de rondas tipo Aviator, detecta patrones (rachas bajas, frecuencia de caídas, tendencias de subida) y envía señales **ENTRAR** o **POSIBLE ALTA** por Telegram.
+- **`telegram.js`** – Módulo de notificaciones. Gestiona el envío de mensajes con control de errores.
+
+---
+
+## Lógica de predicción
+
+El bot analiza las últimas **10, 20 y 50 rondas** y detecta los siguientes patrones:
+
+| Patrón | Condición | Señal |
+|---|---|---|
+| `RACHA_BAJA` | ≥ 7 de las últimas 10 rondas < 2x | 🚨 ENTRAR |
+| `FRECUENCIA_CAIDAS` | ≥ 14 de las últimas 20 rondas < 2x | 🚨 ENTRAR |
+| `TENDENCIA_SUBIDA` | Valores recientes bajos tras racha mixta | 🚨 ENTRAR |
+| `POSIBLE_ALTA` | Promedio 50 rondas > 5x y pocas bajas recientes | 🔥 POSIBLE ALTA |
 
 ---
 
@@ -27,20 +40,16 @@ cd CRASH-BOT-
 npm install
 
 # 3. Configurar variables de entorno
-cp .env .env.local   # o edita .env directamente
+# edita .env directamente
 ```
 
 ---
 
 ## Configuración del archivo `.env`
 
-Edita el archivo `.env` con tus credenciales:
+Edita el archivo `.env` con tus credenciales de Telegram:
 
 ```env
-# Binance API
-API_KEY=tu_api_key_de_binance
-API_SECRET=tu_api_secret_de_binance
-
 # Telegram
 TELEGRAM_TOKEN=token_de_tu_bot_de_telegram
 TELEGRAM_CHAT_ID=tu_chat_id
@@ -69,7 +78,46 @@ TELEGRAM_CHAT_ID=tu_chat_id
 npm start
 ```
 
-El bot arrancará en `http://localhost:3000` y enviará una notificación a Telegram confirmando el inicio.
+El bot iniciará, enviará `🚀 Bot activo y analizando rondas.` por Telegram y comenzará a analizar cada 5 segundos.
+
+---
+
+## Notificaciones que recibirás por Telegram
+
+### Al iniciar
+```
+🚀 Bot activo y analizando rondas.
+```
+
+### Señal de entrada
+```
+🚨 ENTRAR
+
+Predicción: 5.20x
+Retiro seguro: 4.70x
+Riesgo: Medio
+
+Últimas rondas: 1.2x, 1.5x, 1.1x, 1.3x, 1.4x
+Patrón: 7 de las últimas 10 rondas fueron < 2x
+```
+
+### Alerta de ronda alta
+```
+🔥 POSIBLE ALTA
+
+Se detecta patrón de subida.
+Últimas rondas: 1.2x, 1.5x, 1.1x, 1.3x, 1.4x
+
+Posible explosión > 8.50x.
+Basado en: Promedio últimas 50 rondas: 5.30x
+```
+
+---
+
+## Control anti-spam
+
+- Mínimo **4 segundos** entre mensajes.
+- Los mensajes **idénticos consecutivos** no se reenvían.
 
 ---
 
@@ -81,9 +129,9 @@ El bot arrancará en `http://localhost:3000` y enviará una notificación a Tele
 2. Crea un nuevo Repl de tipo **Node.js**.
 3. Sube los archivos del proyecto (o importa desde GitHub).
 4. En la sección **Secrets** (ícono de candado), añade:
-   - `API_KEY`, `API_SECRET`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
+   - `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
 5. En la consola ejecuta `npm install && npm start`.
-6. Para mantenerlo activo 24/7 usa [UptimeRobot](https://uptimerobot.com) — configura un monitor HTTP apuntando a la URL de tu Repl.
+6. Para mantenerlo activo 24/7 usa [UptimeRobot](https://uptimerobot.com).
 
 ### Opción 2 – Glitch
 
@@ -91,7 +139,6 @@ El bot arrancará en `http://localhost:3000` y enviará una notificación a Tele
 2. Crea un nuevo proyecto Node.js e importa el repositorio.
 3. Añade las variables de entorno en el archivo `.env` de Glitch.
 4. El proyecto se ejecuta automáticamente.
-5. Usa UptimeRobot para evitar que se duerma después de 5 minutos de inactividad.
 
 ### Opción 3 – Railway (500 horas gratis al mes)
 
@@ -102,18 +149,13 @@ El bot arrancará en `http://localhost:3000` y enviará una notificación a Tele
 
 ---
 
-## Notificaciones que recibirás por Telegram
+## Módulos del bot
 
-| Evento | Mensaje |
+| Función | Descripción |
 |---|---|
-| Bot iniciado | 🚀 Bot iniciado correctamente |
-| Compra ejecutada | 🟢 COMPRA ejecutada con precio |
-| Venta ejecutada | 🔴 VENTA ejecutada con precio |
-| Error en el bot | ⚠️ Error con descripción |
-| Señal Crash (bot.js) | 🚨 ENTRAR con retiro y riesgo sugeridos |
+| `analizarRondas(rondas)` | Calcula bajos, promedio y tendencia de una lista de rondas |
+| `detectarPatron()` | Evalúa el historial y devuelve el patrón activo |
+| `generarPrediccion(patron)` | Genera predicción, retiro seguro y nivel de riesgo |
+| `enviarConControl(mensaje)` | Envía por Telegram con control anti-spam y anti-duplicados |
+| `ciclo()` | Loop principal: obtiene ronda, analiza y notifica |
 
----
-
-## Advertencia
-
-Este bot ejecuta órdenes reales en Binance. Úsalo bajo tu propia responsabilidad. Se recomienda probarlo primero en la red de pruebas (testnet) de Binance antes de operar con fondos reales.
