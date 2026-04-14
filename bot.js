@@ -217,5 +217,11 @@ async function ciclo() {
     console.error("[Telegram] Error al notificar inicio:", err.message);
   }
 
-  setInterval(ciclo, 5000);
+  setInterval(async () => {
+    try {
+      await ciclo();
+    } catch (err) {
+      console.error("[Bot] Error en ciclo:", err.message);
+    }
+  }, 5000);
 })();
