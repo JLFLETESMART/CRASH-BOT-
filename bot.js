@@ -3,6 +3,7 @@ const { sendNotification } = require("./telegram");
 
 // --- Historial de rondas ---
 let historial = [];
+const MAX_HISTORIAL = 200;
 
 // --- Control anti-spam ---
 let ultimoMensaje = "";
@@ -16,11 +17,11 @@ const INTERVALO_MIN_MS = 4000; // mínimo 4 segundos entre mensajes
  */
 function obtenerNuevaRonda() {
   const r = Math.random();
-  if (r < 0.50) return +(1 + Math.random() * 0.99).toFixed(2);  // 1.00 – 1.99
-  if (r < 0.75) return +(2 + Math.random() * 2.99).toFixed(2);  // 2.00 – 4.99
-  if (r < 0.88) return +(5 + Math.random() * 4.99).toFixed(2);  // 5.00 – 9.99
-  if (r < 0.95) return +(10 + Math.random() * 9.99).toFixed(2); // 10.00 – 19.99
-  return +(20 + Math.random() * 30).toFixed(2);                  // 20.00 – 50.00
+  if (r < 0.50) return +(1  + Math.random() * 1).toFixed(2);   // 1.00 – 2.00
+  if (r < 0.75) return +(2  + Math.random() * 3).toFixed(2);   // 2.00 – 5.00
+  if (r < 0.88) return +(5  + Math.random() * 5).toFixed(2);   // 5.00 – 10.00
+  if (r < 0.95) return +(10 + Math.random() * 10).toFixed(2);  // 10.00 – 20.00
+  return +(20 + Math.random() * 30).toFixed(2);                 // 20.00 – 50.00
 }
 
 /**
@@ -176,7 +177,7 @@ async function enviarConControl(mensaje) {
 async function ciclo() {
   const nueva = obtenerNuevaRonda();
   historial.push(nueva);
-  if (historial.length > 200) historial.shift();
+  if (historial.length > MAX_HISTORIAL) historial.shift();
 
   console.log(`📊 Nueva ronda: ${nueva}x | Últimas 10: [${historial.slice(-10).join(", ")}]`);
 
