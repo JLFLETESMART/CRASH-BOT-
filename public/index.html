@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crash Bot — Panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+
+    .card h1 {
+      font-size: 1.2rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin-bottom: 32px;
+    }
+
+    /* ── Signal block ── */
+    #signal-block {
+      margin-bottom: 28px;
+    }
+
+    #signal-icon {
+      font-size: 3.2rem;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    #signal-text {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      transition: color 0.4s ease;
+    }
+
+    #signal-text.entrar   { color: #00ff88; text-shadow: 0 0 24px rgba(0,255,136,0.5); }
+    #signal-text.esperar  { color: #ffcc00; text-shadow: 0 0 24px rgba(255,204,0,0.5); }
+    #signal-text.posible  { color: #ff6600; text-shadow: 0 0 24px rgba(255,102,0,0.5); }
+
+    /* ── Stats grid ── */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 16px 12px;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    #cashout-value { color: #00d4ff; }
+    #banca-value   { color: #a78bfa; }
+
+    /* ── Last rounds ── */
+    .rounds-section {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 14px;
+      padding: 16px 14px;
+    }
+
+    .rounds-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    #rounds-list {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .round-pill {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .round-pill.high { color: #00ff88; background: rgba(0,255,136,0.12); }
+    .round-pill.low  { color: #f87171; background: rgba(248,113,113,0.12); }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 28px;
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 0.08em;
+    }
+
+    #status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #888;
+      margin-right: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+
+    #status-dot.online { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+
+    @media (max-width: 360px) {
+      #signal-text { font-size: 2.2rem; }
+      .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🤖 Crash Bot</h1>
+
+    <div id="signal-block">
+      <div id="signal-icon">⏳</div>
+      <div id="signal-text" class="esperar">ESPERAR</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">🎯 Cashout</div>
+        <div class="stat-value" id="cashout-value">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">💰 Banca</div>
+        <div class="stat-value" id="banca-value">—</div>
+      </div>
+    </div>
+
+    <div class="rounds-section">
+      <div class="rounds-label">📊 Últimas rondas</div>
+      <div id="rounds-list"><span class="round-pill">—</span></div>
+    </div>
+
+    <div class="footer">
+      <span id="status-dot"></span>
+      <span id="status-text">Conectando…</span>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const signalIcon = document.getElementById("signal-icon");
+    const signalText = document.getElementById("signal-text");
+    const cashoutEl  = document.getElementById("cashout-value");
+    const bancaEl    = document.getElementById("banca-value");
+    const roundsList = document.getElementById("rounds-list");
+    const statusDot  = document.getElementById("status-dot");
+    const statusText = document.getElementById("status-text");
+
+    socket.on("connect", () => {
+      statusDot.className = "online";
+      statusText.textContent = "En vivo";
+    });
+
+    socket.on("disconnect", () => {
+      statusDot.className = "";
+      statusText.textContent = "Desconectado";
+    });
+
+    socket.on("data", (payload) => {
+      const { decision, banca, ultimasRondas } = payload;
+      const estado = decision && decision.estado ? decision.estado : "ESPERAR";
+      const cashout = decision && decision.cashout != null ? decision.cashout : null;
+
+      // --- Signal ---
+      signalText.textContent = estado;
+      signalText.className = "";
+      if (estado === "ENTRAR") {
+        signalIcon.textContent = "🚨";
+        signalText.classList.add("entrar");
+      } else if (estado === "POSIBLE ALTA") {
+        signalIcon.textContent = "🔥";
+        signalText.classList.add("posible");
+      } else {
+        signalIcon.textContent = "⏳";
+        signalText.classList.add("esperar");
+      }
+
+      // --- Cashout ---
+      cashoutEl.textContent = cashout != null ? cashout + "x" : "—";
+
+      // --- Banca ---
+      bancaEl.textContent = banca != null ? "$" + banca.toFixed(2) : "—";
+
+      // --- Last rounds ---
+      const rondas = Array.isArray(ultimasRondas) ? ultimasRondas : [];
+      roundsList.innerHTML = rondas.length
+        ? rondas.map(r => {
+            const cls = r >= 5 ? "high" : r < 2 ? "low" : "";
+            return `<span class="round-pill ${cls}">${r}x</span>`;
+          }).join("")
+        : "<span class='round-pill'>—</span>";
+    });
+  </script>
+</body>
+</html>
