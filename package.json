@@ -4,8 +4,9 @@
   "description": "Crash game trading bot with Telegram notifications",
   "main": "server.js",
   "scripts": {
-    "test": "node -e \"require('./telegram'); console.log('OK')\"",
-    "start": "node bot.js"
+    "test": "node -e \"require('./telegram'); require('./src/config'); require('./src/analizarHistorial'); require('./src/detectarEntrada'); require('./src/calcularCashout'); require('./src/gestionarBanca'); require('./src/antiPerdidas'); console.log('OK: All modules loaded')\"",
+    "start": "node bot.js",
+    "build": "node --check bot.js && node --check telegram.js && node --check src/config.js && node --check src/analizarHistorial.js && node --check src/detectarEntrada.js && node --check src/calcularCashout.js && node --check src/gestionarBanca.js && node --check src/antiPerdidas.js"
   },
   "keywords": [],
   "author": "",

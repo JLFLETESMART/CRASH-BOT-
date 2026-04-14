@@ -1,221 +1,167 @@
 require("dotenv").config();
 const { sendNotification } = require("./telegram");
+const config = require("./src/config");
+const { analizarHistorial } = require("./src/analizarHistorial");
+const { detectarEntrada } = require("./src/detectarEntrada");
+const { calcularCashout } = require("./src/calcularCashout");
+const { crearGestorBanca } = require("./src/gestionarBanca");
+const { crearFiltroAntiPerdidas } = require("./src/antiPerdidas");
 
-// --- Historial de rondas ---
+// --- Estado global ---
 let historial = [];
-const MAX_HISTORIAL = 200;
-
-// --- Control anti-spam ---
 let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
-const INTERVALO_MIN_MS = 4000; // mínimo 4 segundos entre mensajes
+
+// --- Módulos de gestión ---
+const gestorBanca = crearGestorBanca();
+const filtroAntiPerdidas = crearFiltroAntiPerdidas();
 
 /**
  * Simula una nueva ronda con distribución realista tipo Aviator.
- * Reemplazar esta función con una fuente real de datos si está disponible.
+ * Reemplazar esta función con una fuente real de datos (WebSocket, API, OCR, etc.)
  * @returns {number}
  */
 function obtenerNuevaRonda() {
   const r = Math.random();
-  if (r < 0.50) return +(1  + Math.random() * 1).toFixed(2);   // 1.00 – 2.00
-  if (r < 0.75) return +(2  + Math.random() * 3).toFixed(2);   // 2.00 – 5.00
-  if (r < 0.88) return +(5  + Math.random() * 5).toFixed(2);   // 5.00 – 10.00
-  if (r < 0.95) return +(10 + Math.random() * 10).toFixed(2);  // 10.00 – 20.00
-  return +(20 + Math.random() * 30).toFixed(2);                 // 20.00 – 50.00
-}
-
-/**
- * Analiza las últimas N rondas del historial.
- * @param {number[]} rondas
- * @returns {{ bajos: number, promedio: number, tendenciaSubida: boolean }}
- */
-function analizarRondas(rondas) {
-  if (rondas.length === 0) return { bajos: 0, promedio: 0, tendenciaSubida: false };
-
-  const bajos = rondas.filter(x => x < 2).length;
-  const promedio = rondas.reduce((a, b) => a + b, 0) / rondas.length;
-
-  // Tendencia de subida: si los últimos 5 son más bajos que los 5 anteriores
-  // indica acumulación de pérdidas y mayor probabilidad de ronda alta próxima
-  const ultimos5 = rondas.slice(-5);
-  const anteriores5 = rondas.slice(-10, -5);
-  let tendenciaSubida = false;
-
-  if (anteriores5.length >= 3 && ultimos5.length >= 3) {
-    const promUltimos = ultimos5.reduce((a, b) => a + b, 0) / ultimos5.length;
-    const promAnteriores = anteriores5.reduce((a, b) => a + b, 0) / anteriores5.length;
-    tendenciaSubida = promUltimos < promAnteriores;
-  }
-
-  return { bajos, promedio, tendenciaSubida };
-}
-
-/**
- * Detecta el patrón actual en el historial de rondas.
- * @returns {{ patron: string, descripcion: string }}
- */
-function detectarPatron() {
-  const ultimas50 = historial.slice(-50);
-  const ultimas20 = historial.slice(-20);
-  const ultimas10 = historial.slice(-10);
-
-  const analisis10 = analizarRondas(ultimas10);
-  const analisis20 = analizarRondas(ultimas20);
-  const analisis50 = analizarRondas(ultimas50);
-
-  // Muchas rondas bajas consecutivas → probable subida próxima
-  if (analisis10.bajos >= 7) {
-    return {
-      patron: "RACHA_BAJA",
-      descripcion: `${analisis10.bajos} de las últimas 10 rondas fueron < 2x`
-    };
-  }
-
-  // Alta frecuencia de caídas en las últimas 20 rondas
-  if (analisis20.bajos >= 14) {
-    return {
-      patron: "FRECUENCIA_CAIDAS",
-      descripcion: `${analisis20.bajos} de las últimas 20 rondas fueron < 2x`
-    };
-  }
-
-  // Tendencia de subida detectada junto con rondas bajas recientes
-  if (analisis20.tendenciaSubida && analisis10.bajos >= 3) {
-    return {
-      patron: "TENDENCIA_SUBIDA",
-      descripcion: "Valores recientes bajos tras racha mixta — posible rebote"
-    };
-  }
-
-  // Alta probabilidad de ronda grande: promedio elevado y pocas bajas recientes
-  if (analisis50.promedio > 5 && analisis10.bajos <= 2) {
-    return {
-      patron: "POSIBLE_ALTA",
-      descripcion: `Promedio últimas 50 rondas: ${analisis50.promedio.toFixed(2)}x`
-    };
-  }
-
-  return { patron: "ESPERAR", descripcion: "Sin patrón claro en este momento" };
-}
-
-/**
- * Genera una predicción basada en el patrón detectado y el historial reciente.
- * @param {string} patron
- * @returns {{ prediccion: number, retiroSeguro: number, riesgo: string, nivel: string }}
- */
-function generarPrediccion(patron) {
-  const ultimas20 = historial.slice(-20);
-  const promedio = ultimas20.length > 0
-    ? ultimas20.reduce((a, b) => a + b, 0) / ultimas20.length
-    : 2;
-
-  let prediccion, margen, riesgo, nivel;
-
-  switch (patron) {
-    case "RACHA_BAJA":
-      prediccion = Math.max(2.5, promedio * 1.5);
-      margen = 0.5;
-      riesgo = "Medio";
-      nivel = "ENTRAR";
-      break;
-    case "FRECUENCIA_CAIDAS":
-      prediccion = Math.max(3, promedio * 1.8);
-      margen = 0.7;
-      riesgo = "Medio-Alto";
-      nivel = "ENTRAR";
-      break;
-    case "TENDENCIA_SUBIDA":
-      prediccion = Math.max(4, promedio * 2);
-      margen = 1.0;
-      riesgo = "Alto";
-      nivel = "ENTRAR";
-      break;
-    case "POSIBLE_ALTA":
-      prediccion = Math.max(8, promedio * 2.5);
-      margen = 2.0;
-      riesgo = "Muy Alto";
-      nivel = "ALTA";
-      break;
-    default:
-      prediccion = promedio;
-      margen = 0.5;
-      riesgo = "Bajo";
-      nivel = "ESPERAR";
-  }
-
-  return {
-    prediccion: +prediccion.toFixed(2),
-    retiroSeguro: +(prediccion - margen).toFixed(2),
-    riesgo,
-    nivel
-  };
+  if (r < 0.50) return +(1   + Math.random() * 0.5).toFixed(2);  // 1.00 – 1.50
+  if (r < 0.70) return +(1.5 + Math.random() * 0.5).toFixed(2);  // 1.50 – 2.00
+  if (r < 0.82) return +(2   + Math.random() * 3).toFixed(2);    // 2.00 – 5.00
+  if (r < 0.91) return +(5   + Math.random() * 5).toFixed(2);    // 5.00 – 10.00
+  if (r < 0.97) return +(10  + Math.random() * 10).toFixed(2);   // 10.00 – 20.00
+  return +(20 + Math.random() * 30).toFixed(2);                   // 20.00 – 50.00
 }
 
 /**
  * Envía una notificación por Telegram respetando el control anti-spam.
- * Evita duplicados y garantiza al menos INTERVALO_MIN_MS entre mensajes.
+ * Evita duplicados y garantiza al menos intervaloMinMensajeMs entre mensajes.
  * @param {string} mensaje
  */
 async function enviarConControl(mensaje) {
   if (mensaje === ultimoMensaje) return;
 
   const tiempoTranscurrido = Date.now() - ultimoTiempoMensaje;
-  if (tiempoTranscurrido < INTERVALO_MIN_MS) {
-    await new Promise(r => setTimeout(r, INTERVALO_MIN_MS - tiempoTranscurrido));
+  if (tiempoTranscurrido < config.intervaloMinMensajeMs) {
+    await new Promise((r) =>
+      setTimeout(r, config.intervaloMinMensajeMs - tiempoTranscurrido)
+    );
   }
 
   ultimoMensaje = mensaje;
   ultimoTiempoMensaje = Date.now();
 
+  // Mostrar en consola sin formato Markdown
   console.log(mensaje.replace(/\*/g, "").replace(/_/g, ""));
   await sendNotification(mensaje);
 }
 
 /**
- * Ciclo principal: obtiene nueva ronda, analiza patrones y notifica si corresponde.
+ * Muestra resumen del estado actual en consola.
+ */
+function mostrarEstado(nueva, decision, cashoutInfo, bancaInfo, antiPerdidasInfo) {
+  const estadoStr = decision.entrar ? "🟢 ENTRAR" : "🔴 ESPERAR";
+  const { banca, apuesta } = bancaInfo;
+
+  console.log("─".repeat(55));
+  console.log(`📊 Última ronda:     ${nueva}x`);
+  console.log(`📈 Estado:           ${estadoStr} (score: ${decision.score}/100)`);
+  if (decision.entrar) {
+    console.log(`💰 Cashout:          ${cashoutInfo.cashout}x (${cashoutInfo.tipo})`);
+    console.log(`🎯 Apuesta:          $${apuesta.toFixed(2)}`);
+  }
+  console.log(`🏦 Banca:            $${banca.toFixed(2)}`);
+  if (antiPerdidasInfo.pausado) {
+    console.log(`⚠️  Anti-pérdidas:   PAUSADO (${antiPerdidasInfo.perdidasConsecutivas} pérdidas consecutivas)`);
+  }
+  console.log("─".repeat(55));
+}
+
+/**
+ * Ciclo principal: obtiene nueva ronda → analiza → decide → emite señal.
+ * Todo basado en historial real, sin aleatoriedad en las decisiones.
  */
 async function ciclo() {
+  const { activo: bancaActiva } = gestorBanca.estado();
+  if (!bancaActiva) {
+    console.log("⛔ Bot detenido. Banca agotada o objetivo alcanzado.");
+    return;
+  }
+
+  // 1. Obtener nueva ronda
   const nueva = obtenerNuevaRonda();
   historial.push(nueva);
-  if (historial.length > MAX_HISTORIAL) historial.shift();
+  if (historial.length > config.maxHistorial) historial.shift();
 
-  console.log(`📊 Nueva ronda: ${nueva}x | Últimas 10: [${historial.slice(-10).join(", ")}]`);
+  // 2. Analizar historial (requiere mínimo de datos)
+  if (historial.length < 10) {
+    console.log(`📊 Ronda ${nueva}x | Recopilando datos... (${historial.length}/${config.ventanaAnalisis})`);
+    return;
+  }
 
-  if (historial.length < 10) return;
+  const analisis = analizarHistorial(historial);
 
-  const { patron, descripcion } = detectarPatron();
-  const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron);
+  // 3. Detectar entrada basándose en el análisis
+  const decision = detectarEntrada(analisis);
 
-  if (nivel === "ENTRAR") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
+  // 4. Calcular cashout dinámico
+  const cashoutInfo = calcularCashout(analisis);
+
+  // 5. Verificar filtro anti-pérdidas
+  const antiPerdidasInfo = filtroAntiPerdidas.estado();
+  const permiso = filtroAntiPerdidas.permitirEntrada(decision.score);
+
+  // 6. Mostrar estado en consola
+  mostrarEstado(nueva, decision, cashoutInfo, gestorBanca.estado(), antiPerdidasInfo);
+
+  // 7. Si hay señal de ENTRAR y el filtro lo permite
+  if (decision.entrar && permiso.permitido) {
+    // Simular si la ronda habría sido ganada con el cashout propuesto
+    const gano = nueva >= cashoutInfo.cashout;
+    const resultado = gestorBanca.registrarResultado(gano, cashoutInfo.cashout);
+    filtroAntiPerdidas.registrar(gano);
+
+    console.log(resultado.mensaje);
+
+    // Preparar mensaje para Telegram
+    const ultimasStr = historial.slice(-5).map((x) => `${x}x`).join(", ");
+    const simbolo = gano ? "✅" : "❌";
     const msg =
-      `🚨 *ENTRAR*\n\n` +
-      `Predicción: *${prediccion}x*\n` +
-      `Retiro seguro: *${retiroSeguro}x*\n` +
-      `Riesgo: ${riesgo}\n\n` +
-      `_Últimas rondas: ${ultimasStr}_\n` +
-      `_Patrón: ${descripcion}_`;
+      `🚨 *SEÑAL: ENTRAR*\n\n` +
+      `${simbolo} Resultado: *${nueva}x* ${gano ? "(GANADA)" : "(PERDIDA)"}\n` +
+      `💰 Cashout: *${cashoutInfo.cashout}x* (${cashoutInfo.tipo})\n` +
+      `📊 Score: *${decision.score}/100*\n` +
+      `🏦 Banca: *$${resultado.banca.toFixed(2)}*\n\n` +
+      `_Últimas: ${ultimasStr}_\n` +
+      `_${decision.razon}_`;
     await enviarConControl(msg);
-  } else if (nivel === "ALTA") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
-    const msg =
-      `🔥 *POSIBLE ALTA*\n\n` +
-      `Se detecta patrón de subida.\n` +
-      `Últimas rondas: ${ultimasStr}\n\n` +
-      `Posible explosión > *${prediccion}x*.\n` +
-      `_Basado en: ${descripcion}_`;
-    await enviarConControl(msg);
+  } else if (decision.entrar && !permiso.permitido) {
+    console.log(`⏸️  Entrada bloqueada: ${permiso.razon}`);
   }
 }
 
 // --- Inicialización ---
 (async () => {
-  console.log("🚀 Bot activo y analizando rondas.");
+  const { banca } = gestorBanca.estado();
+  console.log("═".repeat(55));
+  console.log("🚀 CRASH BOT - HIGH FLYER");
+  console.log("═".repeat(55));
+  console.log(`🏦 Banca inicial:  $${banca.toFixed(2)}`);
+  console.log(`🎯 Objetivo:       $${config.objetivo.toFixed(2)}`);
+  console.log(`📉 Umbral bajo:    <${config.umbralBajo}x`);
+  console.log(`🔄 Racha mínima:   ${config.rachaMinima} consecutivos`);
+  console.log(`💰 Cashout:        ${config.cashoutMin}x – ${config.cashoutMax}x`);
+  console.log(`⏱️  Intervalo:      ${config.intervaloRondaMs / 1000}s`);
+  console.log("═".repeat(55));
+
   try {
-    await sendNotification("🚀 Bot activo y analizando rondas.");
+    await sendNotification(
+      `🚀 *CRASH BOT ACTIVO*\n\n` +
+      `🏦 Banca: *$${banca.toFixed(2)}*\n` +
+      `🎯 Objetivo: *$${config.objetivo.toFixed(2)}*\n` +
+      `💰 Cashout: *${config.cashoutMin}x – ${config.cashoutMax}x*`
+    );
   } catch (err) {
     console.error("[Telegram] Error al notificar inicio:", err.message);
   }
 
-  setInterval(ciclo, 5000);
+  setInterval(ciclo, config.intervaloRondaMs);
 })();
