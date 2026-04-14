@@ -186,7 +186,7 @@
   <script>
     const socket = io({
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 10000
@@ -217,6 +217,10 @@
 
     socket.on("reconnect_attempt", (attempt) => {
       statusText.textContent = "Reconectando… intento " + attempt;
+    });
+
+    socket.io.on("reconnect_failed", () => {
+      statusText.textContent = "No se pudo conectar al servidor";
     });
 
     socket.on("data", (payload) => {
