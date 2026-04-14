@@ -17,14 +17,20 @@ function mostrarEstado(decision, banca, ultimo) {
   console.log("═══════════════════════════════\n");
 
   if (decision.estado && decision.estado.includes("ENTRAR")) {
-    const cashout = decision.cashout || "2.00";
+    const cashout = decision.cashout || 2.00;
+    const cashoutStr = typeof cashout === "number" && cashout > 100
+      ? `$${cashout.toFixed(2)}`
+      : `${cashout}x`;
     console.log("  🚨 ENTRAR");
-    console.log(`  🎯 Retirar en: ${cashout}x`);
+    console.log(`  🎯 Retirar en: ${cashoutStr}`);
     console.log(`  💰 Banca: $${banca}`);
   } else {
     console.log("  ⏳ Esperando oportunidad...");
     if (ultimo !== undefined && ultimo !== null) {
-      console.log(`  📊 Último: ${ultimo}x`);
+      const ultimoStr = typeof ultimo === "number" && ultimo > 100
+        ? `$${ultimo.toFixed(2)}`
+        : `${ultimo}x`;
+      console.log(`  📊 Último: ${ultimoStr}`);
     }
     console.log(`  💰 Banca: $${banca}`);
   }
