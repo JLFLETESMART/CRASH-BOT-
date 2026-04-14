@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRASH BOT – Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 { font-size: 1.8rem; color: #58a6ff; margin-bottom: 2rem; letter-spacing: 1px; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .card .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8b949e;
+      margin-bottom: 0.5rem;
+    }
+
+    .card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      transition: color 0.3s;
+    }
+
+    .signal-BUY  { color: #3fb950; }
+    .signal-SELL { color: #f85149; }
+    .signal-HOLD { color: #d29922; }
+
+    .position-LONG { color: #3fb950; }
+    .position-none { color: #8b949e; }
+
+    #status {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+
+    #log {
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 800px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1rem;
+      max-height: 260px;
+      overflow-y: auto;
+      font-size: 0.82rem;
+      font-family: monospace;
+    }
+
+    #log .entry { padding: 2px 0; border-bottom: 1px solid #21262d; }
+    #log .entry:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <h1>🚀 CRASH BOT – Live Dashboard</h1>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">Precio BTC/USDT</div>
+      <div class="value" id="price">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Señal</div>
+      <div class="value" id="signal">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Posición</div>
+      <div class="value" id="position">—</div>
+    </div>
+  </div>
+
+  <p id="status">Conectando…</p>
+
+  <div id="log"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const priceEl    = document.getElementById("price");
+    const signalEl   = document.getElementById("signal");
+    const positionEl = document.getElementById("position");
+    const statusEl   = document.getElementById("status");
+    const logEl      = document.getElementById("log");
+
+    const socket = io();
+
+    socket.on("connect", () => {
+      statusEl.textContent = "✅ Conectado";
+    });
+
+    socket.on("disconnect", () => {
+      statusEl.textContent = "❌ Desconectado – reconectando…";
+    });
+
+    socket.on("data", ({ price, signal, position }) => {
+      priceEl.textContent = "$" + Number(price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      signalEl.textContent = signal;
+      signalEl.className   = "value signal-" + signal;
+
+      const pos = position || "SIN POSICIÓN";
+      positionEl.textContent = pos;
+      positionEl.className   = "value " + (position ? "position-LONG" : "position-none");
+
+      // Agregar al log
+      const entry = document.createElement("div");
+      entry.className = "entry";
+      const ts = new Date().toLocaleTimeString();
+      entry.textContent = `[${ts}] 💰 $${Number(price).toLocaleString()} | Señal: ${signal} | Pos: ${pos}`;
+      logEl.prepend(entry);
+
+      // Mantener solo los últimos 100 registros
+      while (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+    });
+  </script>
+</body>
+</html>

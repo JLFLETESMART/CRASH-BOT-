@@ -20,10 +20,14 @@ const binance = new Binance().options({
 let prices = [];
 let position = null; // "LONG" o null
 
+// Anti-spam para notificaciones de error (máx. 1 por minuto)
+let lastErrorNotification = 0;
+const ERROR_NOTIFICATION_INTERVAL = 60_000;
+
 // 📊 ESTRATEGIA SIMPLE PERO REAL
 function signal(data) {
-  const short = data.slice(-5).reduce((a,b)=>a+b)/5;
-  const long = data.slice(-20).reduce((a,b)=>a+b)/20;
+  const short = data.slice(-5).reduce((a, b) => a + b, 0) / 5;
+  const long  = data.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
   if (short > long) return "BUY";
   if (short < long) return "SELL";
@@ -56,7 +60,7 @@ async function sell(price) {
 }
 
 // 📡 LOOP REAL
-setInterval(async () => {
+const loop = setInterval(async () => {
   try {
     const book = await binance.prices("BTCUSDT");
     const price = parseFloat(book.BTCUSDT);
@@ -70,21 +74,34 @@ setInterval(async () => {
 
     console.log("💰", price, "🚦", sig);
 
-    if (sig === "BUY") await buy(price);
+    if (sig === "BUY")  await buy(price);
     if (sig === "SELL") await sell(price);
 
-    io.emit("data", {
-      price,
-      signal: sig,
-      position
-    });
+    io.emit("data", { price, signal: sig, position });
 
   } catch (e) {
     const errMsg = e.body || e.message;
-    console.log("ERROR:", errMsg);
-    await sendNotification(`⚠️ *Error en el bot*\n\`${errMsg}\``);
+    console.error("ERROR:", errMsg);
+
+    const now = Date.now();
+    if (now - lastErrorNotification > ERROR_NOTIFICATION_INTERVAL) {
+      lastErrorNotification = now;
+      await sendNotification(`⚠️ *Error en el bot*\n\`${errMsg}\``);
+    }
   }
 }, 3000);
+
+// Apagado limpio
+async function shutdown() {
+  console.log("\n🛑 Apagando bot de Binance...");
+  clearInterval(loop);
+  await sendNotification("🛑 *Bot de Binance detenido.*").catch(() => {});
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT",  shutdown);
 
 server.listen(3000, () => {
   console.log("🚀 BOT REAL ACTIVO en http://localhost:3000");

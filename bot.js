@@ -217,5 +217,16 @@ async function ciclo() {
     console.error("[Telegram] Error al notificar inicio:", err.message);
   }
 
-  setInterval(ciclo, 5000);
+  const timer = setInterval(ciclo, 5000);
+
+  // Apagado limpio
+  async function shutdown() {
+    console.log("\n🛑 Apagando bot de Crash...");
+    clearInterval(timer);
+    await sendNotification("🛑 *Bot de Crash detenido.*").catch(() => {});
+    process.exit(0);
+  }
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT",  shutdown);
 })();

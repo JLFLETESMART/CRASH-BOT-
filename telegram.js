@@ -1,30 +1,28 @@
 require("dotenv").config();
-const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
 
 const token = process.env.TELEGRAM_TOKEN;
 const chatId = process.env.TELEGRAM_CHAT_ID;
 
-let bot = null;
-
-if (token) {
-  bot = new TelegramBot(token);
-}
-
 /**
- * Sends a message to the configured Telegram chat.
+ * Sends a message to the configured Telegram chat via the Bot API.
  * Does nothing if TELEGRAM_TOKEN or TELEGRAM_CHAT_ID are not set.
- * @param {string} message - Text to send
+ * @param {string} message - Text to send (supports Markdown)
  */
 async function sendNotification(message) {
-  if (!bot || !chatId) {
+  if (!token || !chatId) {
     console.log("[Telegram] Notificación omitida (configura TELEGRAM_TOKEN y TELEGRAM_CHAT_ID en .env):", message);
     return;
   }
 
   try {
-    await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+      chat_id: chatId,
+      text: message,
+      parse_mode: "Markdown"
+    });
   } catch (err) {
-    console.error("[Telegram] Error al enviar mensaje:", err.message);
+    console.error("[Telegram] Error al enviar mensaje:", err.response?.data?.description || err.message);
   }
 }
 
