@@ -6,7 +6,12 @@ const { sendNotification } = require("./telegram");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 
@@ -24,6 +29,17 @@ const BANCA_GAIN_MULTIPLIER = 1.02;
 const BANCA_LOSS_MULTIPLIER = 0.995;
 
 app.use(express.static("public"));
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+io.on("connection", (socket) => {
+  console.log(`[Socket.IO] Cliente conectado: ${socket.id}`);
+  socket.on("disconnect", () => {
+    console.log(`[Socket.IO] Cliente desconectado: ${socket.id}`);
+  });
+});
 
 // --- Historial de rondas ---
 let historial = [];

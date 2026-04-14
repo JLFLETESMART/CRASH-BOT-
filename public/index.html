@@ -184,7 +184,13 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000
+    });
 
     const signalIcon = document.getElementById("signal-icon");
     const signalText = document.getElementById("signal-text");
@@ -201,7 +207,16 @@
 
     socket.on("disconnect", () => {
       statusDot.className = "";
-      statusText.textContent = "Desconectado";
+      statusText.textContent = "Desconectado — reconectando…";
+    });
+
+    socket.on("connect_error", () => {
+      statusDot.className = "";
+      statusText.textContent = "Error de conexión — reintentando…";
+    });
+
+    socket.on("reconnect_attempt", (attempt) => {
+      statusText.textContent = "Reconectando… intento " + attempt;
     });
 
     socket.on("data", (payload) => {
