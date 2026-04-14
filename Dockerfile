@@ -15,7 +15,4 @@ COPY . .
 # Do not run as root
 USER botuser
 
-# Expose port used by server.js (if needed)
-EXPOSE 3000
-
 CMD ["node", "bot.js"]

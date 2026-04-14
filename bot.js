@@ -1,221 +1,474 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
+const screenshot = require("screenshot-desktop");
+const Tesseract = require("tesseract.js");
 const { sendNotification } = require("./telegram");
 
-// --- Historial de rondas ---
-let historial = [];
-const MAX_HISTORIAL = 200;
+// --- Archivos ---
+const MEMORIA_PATH = path.join(__dirname, "memoria.json");
+const CAPTURA_PATH = path.join(__dirname, "captura.png");
 
-// --- Control anti-spam ---
+// --- Configuración ---
+const MAX_HISTORIAL = 500;
+const INTERVALO_CAPTURA_MS = 3000;
+const INTERVALO_MIN_MSG_MS = 5000;
+
+// --- Estado ---
+let historial = [];
+let prediccionesAcertadas = 0;
+let prediccionesTotales = 0;
 let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
-const INTERVALO_MIN_MS = 4000; // mínimo 4 segundos entre mensajes
+let ultimoMultiplicador = null;
+let ultimaPrediccion = null;
+let ocrWorker = null;
+
+// ============================================================
+// MEMORIA / APRENDIZAJE
+// ============================================================
 
 /**
- * Simula una nueva ronda con distribución realista tipo Aviator.
- * Reemplazar esta función con una fuente real de datos si está disponible.
- * @returns {number}
+ * Carga el historial y estadísticas guardadas de memoria.json.
  */
-function obtenerNuevaRonda() {
-  const r = Math.random();
-  if (r < 0.50) return +(1  + Math.random() * 1).toFixed(2);   // 1.00 – 2.00
-  if (r < 0.75) return +(2  + Math.random() * 3).toFixed(2);   // 2.00 – 5.00
-  if (r < 0.88) return +(5  + Math.random() * 5).toFixed(2);   // 5.00 – 10.00
-  if (r < 0.95) return +(10 + Math.random() * 10).toFixed(2);  // 10.00 – 20.00
-  return +(20 + Math.random() * 30).toFixed(2);                 // 20.00 – 50.00
+function cargarMemoria() {
+  try {
+    if (fs.existsSync(MEMORIA_PATH)) {
+      const data = JSON.parse(fs.readFileSync(MEMORIA_PATH, "utf-8"));
+      historial = Array.isArray(data.historial) ? data.historial : [];
+      prediccionesAcertadas = data.prediccionesAcertadas || 0;
+      prediccionesTotales = data.prediccionesTotales || 0;
+      console.log(`🧠 Memoria cargada: ${historial.length} rondas, precisión ${obtenerPrecision()}%`);
+    }
+  } catch (err) {
+    console.error("[Memoria] Error al cargar:", err.message);
+  }
 }
 
 /**
- * Analiza las últimas N rondas del historial.
+ * Guarda el historial y estadísticas en memoria.json.
+ */
+function guardarMemoria() {
+  try {
+    const data = {
+      historial: historial.slice(-MAX_HISTORIAL),
+      prediccionesAcertadas,
+      prediccionesTotales,
+      ultimaActualizacion: new Date().toISOString()
+    };
+    fs.writeFileSync(MEMORIA_PATH, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("[Memoria] Error al guardar:", err.message);
+  }
+}
+
+/**
+ * Devuelve el porcentaje de precisión de las predicciones.
+ * @returns {string}
+ */
+function obtenerPrecision() {
+  if (prediccionesTotales === 0) return "0";
+  return ((prediccionesAcertadas / prediccionesTotales) * 100).toFixed(1);
+}
+
+// ============================================================
+// CAPTURA DE PANTALLA + OCR
+// ============================================================
+
+/**
+ * Inicializa el worker de Tesseract OCR.
+ */
+async function inicializarOCR() {
+  const trainedDataPath = path.join(__dirname, "eng.traineddata");
+  const langPath = fs.existsSync(trainedDataPath) ? __dirname : undefined;
+  ocrWorker = await Tesseract.createWorker("eng", undefined, {
+    langPath,
+    logger: () => {}
+  });
+  await ocrWorker.setParameters({
+    tessedit_char_whitelist: "0123456789.xX,",
+    tessedit_pageseg_mode: "6"
+  });
+  console.log("🔍 OCR inicializado correctamente.");
+}
+
+/**
+ * Captura la pantalla y extrae multiplicadores usando OCR.
+ * @returns {number|null} El multiplicador detectado o null si no se pudo leer.
+ */
+async function capturarPantalla() {
+  try {
+    await screenshot({ filename: CAPTURA_PATH, format: "png" });
+
+    const { data: { text } } = await ocrWorker.recognize(CAPTURA_PATH);
+
+    const multiplicadores = extraerMultiplicadores(text);
+
+    if (multiplicadores.length > 0) {
+      const ultimo = multiplicadores[multiplicadores.length - 1];
+      console.log(`📸 OCR detectó: ${multiplicadores.map(m => m + "x").join(", ")} → Usando: ${ultimo}x`);
+      return ultimo;
+    }
+
+    console.log(`📸 OCR texto: "${text.trim().substring(0, 80)}" → Sin multiplicadores detectados`);
+    return null;
+  } catch (err) {
+    console.error("[Captura] Error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Extrae valores de multiplicador del texto OCR.
+ * Busca patrones como: x1.50, 1.50x, X20, 2.5x, x50, etc.
+ * @param {string} texto
+ * @returns {number[]}
+ */
+function extraerMultiplicadores(texto) {
+  if (!texto) return [];
+
+  const patrones = [
+    /[xX]\s*(\d+(?:\.\d+)?)/g,
+    /(\d+(?:\.\d+)?)\s*[xX]/g,
+    /(\d+\.\d{1,2})/g
+  ];
+
+  const encontrados = new Set();
+
+  for (const patron of patrones) {
+    let match;
+    while ((match = patron.exec(texto)) !== null) {
+      const valor = parseFloat(match[1]);
+      if (valor >= 1.0 && valor <= 1000) {
+        encontrados.add(valor);
+      }
+    }
+  }
+
+  return Array.from(encontrados).sort((a, b) => a - b);
+}
+
+// ============================================================
+// ANÁLISIS Y PREDICCIÓN CON APRENDIZAJE
+// ============================================================
+
+/**
+ * Analiza un conjunto de rondas y devuelve estadísticas.
  * @param {number[]} rondas
- * @returns {{ bajos: number, promedio: number, tendenciaSubida: boolean }}
+ * @returns {{ bajos: number, promedio: number, mediana: number, tendenciaSubida: boolean, maxRacha: number }}
  */
 function analizarRondas(rondas) {
-  if (rondas.length === 0) return { bajos: 0, promedio: 0, tendenciaSubida: false };
+  if (rondas.length === 0) return { bajos: 0, promedio: 0, mediana: 0, tendenciaSubida: false, maxRacha: 0 };
 
   const bajos = rondas.filter(x => x < 2).length;
   const promedio = rondas.reduce((a, b) => a + b, 0) / rondas.length;
 
-  // Tendencia de subida: si los últimos 5 son más bajos que los 5 anteriores
-  // indica acumulación de pérdidas y mayor probabilidad de ronda alta próxima
-  const ultimos5 = rondas.slice(-5);
-  const anteriores5 = rondas.slice(-10, -5);
-  let tendenciaSubida = false;
+  const ordenadas = [...rondas].sort((a, b) => a - b);
+  const mediana = ordenadas[Math.floor(ordenadas.length / 2)];
 
-  if (anteriores5.length >= 3 && ultimos5.length >= 3) {
-    const promUltimos = ultimos5.reduce((a, b) => a + b, 0) / ultimos5.length;
-    const promAnteriores = anteriores5.reduce((a, b) => a + b, 0) / anteriores5.length;
-    tendenciaSubida = promUltimos < promAnteriores;
+  // Racha consecutiva de bajos
+  let maxRacha = 0;
+  let rachaActual = 0;
+  for (const r of rondas) {
+    if (r < 2) { rachaActual++; maxRacha = Math.max(maxRacha, rachaActual); }
+    else { rachaActual = 0; }
   }
 
-  return { bajos, promedio, tendenciaSubida };
+  // Tendencia
+  const mitad = Math.floor(rondas.length / 2);
+  const primera = rondas.slice(0, mitad);
+  const segunda = rondas.slice(mitad);
+  const promPrimera = primera.reduce((a, b) => a + b, 0) / (primera.length || 1);
+  const promSegunda = segunda.reduce((a, b) => a + b, 0) / (segunda.length || 1);
+  const tendenciaSubida = promSegunda < promPrimera;
+
+  return { bajos, promedio, mediana, tendenciaSubida, maxRacha };
 }
 
 /**
- * Detecta el patrón actual en el historial de rondas.
- * @returns {{ patron: string, descripcion: string }}
+ * Calcula el factor de ajuste basado en la precisión histórica.
+ * Cuanto más aprende el bot, más conservador o agresivo se vuelve.
+ * @returns {number}
  */
-function detectarPatron() {
-  const ultimas50 = historial.slice(-50);
-  const ultimas20 = historial.slice(-20);
+function factorAprendizaje() {
+  if (prediccionesTotales < 10) return 1.0;
+  const precision = prediccionesAcertadas / prediccionesTotales;
+  if (precision > 0.6) return 1.1;
+  if (precision > 0.4) return 1.0;
+  if (precision > 0.2) return 0.85;
+  return 0.7;
+}
+
+/**
+ * Genera la predicción completa para la próxima ronda.
+ * @returns {{ accion: string, cashout: number, riesgo: string, confianza: string, razon: string }}
+ */
+function generarPrediccion() {
   const ultimas10 = historial.slice(-10);
-
-  const analisis10 = analizarRondas(ultimas10);
-  const analisis20 = analizarRondas(ultimas20);
-  const analisis50 = analizarRondas(ultimas50);
-
-  // Muchas rondas bajas consecutivas → probable subida próxima
-  if (analisis10.bajos >= 7) {
-    return {
-      patron: "RACHA_BAJA",
-      descripcion: `${analisis10.bajos} de las últimas 10 rondas fueron < 2x`
-    };
-  }
-
-  // Alta frecuencia de caídas en las últimas 20 rondas
-  if (analisis20.bajos >= 14) {
-    return {
-      patron: "FRECUENCIA_CAIDAS",
-      descripcion: `${analisis20.bajos} de las últimas 20 rondas fueron < 2x`
-    };
-  }
-
-  // Tendencia de subida detectada junto con rondas bajas recientes
-  if (analisis20.tendenciaSubida && analisis10.bajos >= 3) {
-    return {
-      patron: "TENDENCIA_SUBIDA",
-      descripcion: "Valores recientes bajos tras racha mixta — posible rebote"
-    };
-  }
-
-  // Alta probabilidad de ronda grande: promedio elevado y pocas bajas recientes
-  if (analisis50.promedio > 5 && analisis10.bajos <= 2) {
-    return {
-      patron: "POSIBLE_ALTA",
-      descripcion: `Promedio últimas 50 rondas: ${analisis50.promedio.toFixed(2)}x`
-    };
-  }
-
-  return { patron: "ESPERAR", descripcion: "Sin patrón claro en este momento" };
-}
-
-/**
- * Genera una predicción basada en el patrón detectado y el historial reciente.
- * @param {string} patron
- * @returns {{ prediccion: number, retiroSeguro: number, riesgo: string, nivel: string }}
- */
-function generarPrediccion(patron) {
   const ultimas20 = historial.slice(-20);
-  const promedio = ultimas20.length > 0
-    ? ultimas20.reduce((a, b) => a + b, 0) / ultimas20.length
-    : 2;
+  const ultimas50 = historial.slice(-50);
 
-  let prediccion, margen, riesgo, nivel;
+  const a10 = analizarRondas(ultimas10);
+  const a20 = analizarRondas(ultimas20);
+  const a50 = analizarRondas(ultimas50);
 
-  switch (patron) {
-    case "RACHA_BAJA":
-      prediccion = Math.max(2.5, promedio * 1.5);
-      margen = 0.5;
-      riesgo = "Medio";
-      nivel = "ENTRAR";
-      break;
-    case "FRECUENCIA_CAIDAS":
-      prediccion = Math.max(3, promedio * 1.8);
-      margen = 0.7;
-      riesgo = "Medio-Alto";
-      nivel = "ENTRAR";
-      break;
-    case "TENDENCIA_SUBIDA":
-      prediccion = Math.max(4, promedio * 2);
-      margen = 1.0;
-      riesgo = "Alto";
-      nivel = "ENTRAR";
-      break;
-    case "POSIBLE_ALTA":
-      prediccion = Math.max(8, promedio * 2.5);
-      margen = 2.0;
-      riesgo = "Muy Alto";
-      nivel = "ALTA";
-      break;
-    default:
-      prediccion = promedio;
-      margen = 0.5;
-      riesgo = "Bajo";
-      nivel = "ESPERAR";
+  const factor = factorAprendizaje();
+
+  // Lógica de decisión
+  let accion = "ESPERAR";
+  let cashout = 0;
+  let riesgo = "BAJO";
+  let confianza = "BAJA";
+  let razon = "Sin patrón claro";
+
+  // Patrón 1: Racha de bajos — probable subida
+  if (a10.maxRacha >= 5) {
+    accion = "APOSTAR";
+    cashout = +(Math.max(2.0, a20.promedio * 1.3) * factor).toFixed(2);
+    riesgo = "MEDIO";
+    confianza = "MEDIA";
+    razon = `Racha de ${a10.maxRacha} rondas bajas consecutivas`;
   }
 
-  return {
-    prediccion: +prediccion.toFixed(2),
-    retiroSeguro: +(prediccion - margen).toFixed(2),
-    riesgo,
-    nivel
-  };
+  // Patrón 2: Muchas bajas en las últimas 20
+  if (a20.bajos >= 14) {
+    accion = "APOSTAR";
+    cashout = +(Math.max(2.5, a20.promedio * 1.5) * factor).toFixed(2);
+    riesgo = "MEDIO";
+    confianza = "MEDIA-ALTA";
+    razon = `${a20.bajos}/20 rondas recientes fueron < 2x`;
+  }
+
+  // Patrón 3: Tendencia de acumulación
+  if (a20.tendenciaSubida && a10.bajos >= 5) {
+    accion = "APOSTAR";
+    cashout = +(Math.max(3.0, a50.promedio * 1.8) * factor).toFixed(2);
+    riesgo = "MEDIO-ALTO";
+    confianza = "MEDIA";
+    razon = "Acumulación de rondas bajas con tendencia descendente";
+  }
+
+  // Patrón 4: Posible ronda alta
+  if (a10.maxRacha >= 7 && a50.promedio > 3) {
+    accion = "APOSTAR";
+    cashout = +(Math.max(4.0, a50.promedio * 2.0) * factor).toFixed(2);
+    riesgo = "ALTO";
+    confianza = "MEDIA";
+    razon = `Racha extrema de ${a10.maxRacha} bajos + promedio alto`;
+  }
+
+  // Patrón 5: Rondas muy altas recientes — NO apostar
+  if (a10.promedio > 8 && a10.bajos < 3) {
+    accion = "NO APOSTAR";
+    cashout = 0;
+    riesgo = "ALTO";
+    confianza = "ALTA";
+    razon = "Rondas recientes muy altas — probable caída fuerte";
+  }
+
+  // Seguridad: si no hay suficiente historial
+  if (historial.length < 10) {
+    accion = "ESPERAR";
+    cashout = 0;
+    riesgo = "BAJO";
+    confianza = "BAJA";
+    razon = `Recopilando datos (${historial.length}/10 rondas mínimas)`;
+  }
+
+  return { accion, cashout, riesgo, confianza, razon };
 }
 
 /**
- * Envía una notificación por Telegram respetando el control anti-spam.
- * Evita duplicados y garantiza al menos INTERVALO_MIN_MS entre mensajes.
+ * Evalúa si la predicción anterior fue acertada.
+ * @param {number} resultado - El multiplicador real de la ronda.
+ */
+function evaluarPrediccion(resultado) {
+  if (!ultimaPrediccion) return;
+
+  prediccionesTotales++;
+
+  if (ultimaPrediccion.accion === "APOSTAR" && resultado >= ultimaPrediccion.cashout) {
+    prediccionesAcertadas++;
+  } else if (ultimaPrediccion.accion === "NO APOSTAR" && resultado < 2) {
+    prediccionesAcertadas++;
+  } else if (ultimaPrediccion.accion === "ESPERAR") {
+    prediccionesTotales--;
+  }
+}
+
+// ============================================================
+// DISPLAY EN CONSOLA
+// ============================================================
+
+/**
+ * Muestra el estado actual en la consola de forma clara.
+ * @param {number|null} multiplicador
+ * @param {object} prediccion
+ */
+function mostrarEstado(multiplicador, prediccion) {
+  console.log("\n╔══════════════════════════════════════════╗");
+  console.log("║          CRASH BOT - EN VIVO             ║");
+  console.log("╠══════════════════════════════════════════╣");
+
+  if (multiplicador !== null) {
+    console.log(`║  Último detectado:  ${String(multiplicador + "x").padEnd(20)}║`);
+  } else {
+    console.log("║  Último detectado:  (esperando...)       ║");
+  }
+
+  const ultimas5 = historial.slice(-5);
+  if (ultimas5.length > 0) {
+    const str = ultimas5.map(x => x + "x").join(" → ");
+    console.log(`║  Últimas 5: ${str.padEnd(28)}║`);
+  }
+
+  console.log("╠══════════════════════════════════════════╣");
+
+  const iconoAccion = prediccion.accion === "APOSTAR" ? "✅" :
+                      prediccion.accion === "NO APOSTAR" ? "❌" : "⏳";
+
+  console.log(`║  ${iconoAccion} Acción:  ${prediccion.accion.padEnd(29)}║`);
+
+  if (prediccion.cashout > 0) {
+    console.log(`║  🎯 Retirar en:  ${String(prediccion.cashout + "x").padEnd(23)}║`);
+  }
+
+  console.log(`║  ⚠️  Riesgo:  ${prediccion.riesgo.padEnd(27)}║`);
+  console.log(`║  📊 Confianza:  ${prediccion.confianza.padEnd(25)}║`);
+  console.log(`║  💡 Razón:  ${prediccion.razon.substring(0, 29).padEnd(29)}║`);
+
+  console.log("╠══════════════════════════════════════════╣");
+  console.log(`║  🧠 Rondas en memoria: ${String(historial.length).padEnd(18)}║`);
+  console.log(`║  🎯 Precisión: ${(obtenerPrecision() + "%").padEnd(26)}║`);
+  console.log(`║     (${prediccionesAcertadas}/${prediccionesTotales} predicciones acertadas)`.padEnd(43) + "║");
+  console.log("╚══════════════════════════════════════════╝\n");
+}
+
+// ============================================================
+// NOTIFICACIONES TELEGRAM
+// ============================================================
+
+/**
+ * Envía notificación por Telegram con control anti-spam.
  * @param {string} mensaje
  */
 async function enviarConControl(mensaje) {
   if (mensaje === ultimoMensaje) return;
 
   const tiempoTranscurrido = Date.now() - ultimoTiempoMensaje;
-  if (tiempoTranscurrido < INTERVALO_MIN_MS) {
-    await new Promise(r => setTimeout(r, INTERVALO_MIN_MS - tiempoTranscurrido));
+  if (tiempoTranscurrido < INTERVALO_MIN_MSG_MS) {
+    await new Promise(r => setTimeout(r, INTERVALO_MIN_MSG_MS - tiempoTranscurrido));
   }
 
   ultimoMensaje = mensaje;
   ultimoTiempoMensaje = Date.now();
-
-  console.log(mensaje.replace(/\*/g, "").replace(/_/g, ""));
   await sendNotification(mensaje);
 }
 
 /**
- * Ciclo principal: obtiene nueva ronda, analiza patrones y notifica si corresponde.
+ * Construye y envía el mensaje de Telegram según la predicción.
+ * @param {object} prediccion
+ */
+async function notificarPrediccion(prediccion) {
+  if (prediccion.accion === "ESPERAR") return;
+
+  const ultimas = historial.slice(-5).map(x => `${x}x`).join(", ");
+  const precision = obtenerPrecision();
+
+  let msg;
+
+  if (prediccion.accion === "APOSTAR") {
+    msg =
+      `✅ *APOSTAR*\n\n` +
+      `🎯 Retirar en: *${prediccion.cashout}x*\n` +
+      `⚠️ Riesgo: *${prediccion.riesgo}*\n` +
+      `📊 Confianza: ${prediccion.confianza}\n\n` +
+      `💡 _${prediccion.razon}_\n\n` +
+      `Últimas: ${ultimas}\n` +
+      `🧠 Precisión del bot: ${precision}%`;
+  } else {
+    msg =
+      `❌ *NO APOSTAR*\n\n` +
+      `⚠️ Riesgo: *${prediccion.riesgo}*\n` +
+      `📊 Confianza: ${prediccion.confianza}\n\n` +
+      `💡 _${prediccion.razon}_\n\n` +
+      `Últimas: ${ultimas}\n` +
+      `🧠 Precisión del bot: ${precision}%`;
+  }
+
+  await enviarConControl(msg);
+}
+
+// ============================================================
+// CICLO PRINCIPAL
+// ============================================================
+
+/**
+ * Ciclo principal: captura pantalla, lee OCR, analiza y notifica.
  */
 async function ciclo() {
-  const nueva = obtenerNuevaRonda();
-  historial.push(nueva);
-  if (historial.length > MAX_HISTORIAL) historial.shift();
+  const multiplicador = await capturarPantalla();
 
-  console.log(`📊 Nueva ronda: ${nueva}x | Últimas 10: [${historial.slice(-10).join(", ")}]`);
+  if (multiplicador !== null && multiplicador !== ultimoMultiplicador) {
+    // Nueva ronda detectada
+    evaluarPrediccion(multiplicador);
 
-  if (historial.length < 10) return;
+    historial.push(multiplicador);
+    if (historial.length > MAX_HISTORIAL) historial.shift();
 
-  const { patron, descripcion } = detectarPatron();
-  const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron);
+    ultimoMultiplicador = multiplicador;
 
-  if (nivel === "ENTRAR") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
-    const msg =
-      `🚨 *ENTRAR*\n\n` +
-      `Predicción: *${prediccion}x*\n` +
-      `Retiro seguro: *${retiroSeguro}x*\n` +
-      `Riesgo: ${riesgo}\n\n` +
-      `_Últimas rondas: ${ultimasStr}_\n` +
-      `_Patrón: ${descripcion}_`;
-    await enviarConControl(msg);
-  } else if (nivel === "ALTA") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
-    const msg =
-      `🔥 *POSIBLE ALTA*\n\n` +
-      `Se detecta patrón de subida.\n` +
-      `Últimas rondas: ${ultimasStr}\n\n` +
-      `Posible explosión > *${prediccion}x*.\n` +
-      `_Basado en: ${descripcion}_`;
-    await enviarConControl(msg);
+    // Guardar memoria cada 5 rondas
+    if (historial.length % 5 === 0) {
+      guardarMemoria();
+    }
+  }
+
+  const prediccion = generarPrediccion();
+  ultimaPrediccion = prediccion;
+
+  mostrarEstado(multiplicador, prediccion);
+
+  if (multiplicador !== null) {
+    await notificarPrediccion(prediccion);
   }
 }
 
-// --- Inicialización ---
+// ============================================================
+// INICIO
+// ============================================================
+
 (async () => {
-  console.log("🚀 Bot activo y analizando rondas.");
+  console.log("╔══════════════════════════════════════════╗");
+  console.log("║       🚀 CRASH BOT - INICIANDO           ║");
+  console.log("║   Lectura de pantalla en vivo + OCR       ║");
+  console.log("║   Predicciones con aprendizaje            ║");
+  console.log("╚══════════════════════════════════════════╝\n");
+
+  // Cargar memoria previa
+  cargarMemoria();
+
+  // Inicializar OCR
   try {
-    await sendNotification("🚀 Bot activo y analizando rondas.");
+    await inicializarOCR();
+  } catch (err) {
+    console.error("❌ Error al inicializar OCR:", err.message);
+    console.log("ℹ️  Asegúrate de tener 'eng.traineddata' en el directorio del proyecto.");
+    process.exit(1);
+  }
+
+  // Notificar inicio
+  try {
+    const msg =
+      `🚀 *CRASH BOT activo*\n\n` +
+      `📸 Leyendo pantalla en vivo\n` +
+      `🧠 Rondas en memoria: ${historial.length}\n` +
+      `🎯 Precisión: ${obtenerPrecision()}%`;
+    await sendNotification(msg);
   } catch (err) {
     console.error("[Telegram] Error al notificar inicio:", err.message);
   }
 
-  setInterval(ciclo, 5000);
+  // Ciclo principal
+  setInterval(ciclo, INTERVALO_CAPTURA_MS);
 })();

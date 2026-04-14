@@ -127,8 +127,6 @@ Then point your hosting platform at the image and set the same environment varia
 |---|---|---|
 | `TELEGRAM_TOKEN` | ✅ | Token from @BotFather |
 | `TELEGRAM_CHAT_ID` | ✅ | Target chat / group ID |
-| `API_KEY` | ⬜ | Binance API key (optional) |
-| `API_SECRET` | ⬜ | Binance API secret (optional) |
 
 See `.env.example` for a ready-to-copy template.
 

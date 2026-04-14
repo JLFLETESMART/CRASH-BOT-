@@ -1,26 +1,48 @@
 # CRASH-BOT 🤖
 
-Bot predictor de rondas tipo Aviator con notificaciones inteligentes por Telegram.
+Bot predictor de rondas tipo Crash/Aviator con lectura de pantalla en vivo, OCR y aprendizaje automático. Envía señales claras por Telegram: **APOSTAR**, **NO APOSTAR** o **ESPERAR**.
 
 ---
 
 ## ¿Qué hace?
 
-- **`bot.js`** – Analiza el historial de rondas tipo Aviator, detecta patrones (rachas bajas, frecuencia de caídas, tendencias de subida) y envía señales **ENTRAR** o **POSIBLE ALTA** por Telegram.
-- **`telegram.js`** – Módulo de notificaciones. Gestiona el envío de mensajes con control de errores.
+- **Captura la pantalla en vivo** cada 3 segundos usando `screenshot-desktop`
+- **Lee los multiplicadores** (x1.50, x20, x4.5, etc.) con OCR (`tesseract.js`)
+- **Analiza patrones** en el historial de rondas (rachas bajas, tendencias, acumulación)
+- **Genera predicciones** con nivel de riesgo y punto de retiro recomendado
+- **Aprende con el tiempo** — guarda historial y precisión en `memoria.json`
+- **Notifica por Telegram** con señales claras: ✅ APOSTAR / ❌ NO APOSTAR / ⏳ ESPERAR
+
+---
+
+## Señales del bot
+
+| Señal | Significado |
+|---|---|
+| ✅ **APOSTAR** | Patrón favorable detectado — incluye cashout recomendado |
+| ❌ **NO APOSTAR** | Riesgo alto de caída — mejor esperar |
+| ⏳ **ESPERAR** | Sin patrón claro o recopilando datos |
 
 ---
 
 ## Lógica de predicción
 
-El bot analiza las últimas **10, 20 y 50 rondas** y detecta los siguientes patrones:
+El bot analiza las últimas **10, 20 y 50 rondas** y detecta:
 
 | Patrón | Condición | Señal |
 |---|---|---|
-| `RACHA_BAJA` | ≥ 7 de las últimas 10 rondas < 2x | 🚨 ENTRAR |
-| `FRECUENCIA_CAIDAS` | ≥ 14 de las últimas 20 rondas < 2x | 🚨 ENTRAR |
-| `TENDENCIA_SUBIDA` | Valores recientes bajos tras racha mixta | 🚨 ENTRAR |
-| `POSIBLE_ALTA` | Promedio 50 rondas > 5x y pocas bajas recientes | 🔥 POSIBLE ALTA |
+| Racha baja | ≥ 5 rondas bajas consecutivas | ✅ APOSTAR |
+| Frecuencia caídas | ≥ 14/20 rondas recientes < 2x | ✅ APOSTAR |
+| Acumulación | Tendencia descendente + muchas bajas | ✅ APOSTAR |
+| Racha extrema | ≥ 7 bajos consecutivos + promedio alto | ✅ APOSTAR (Alto) |
+| Rondas altas recientes | Promedio > 8x con pocas bajas | ❌ NO APOSTAR |
+
+### Aprendizaje
+
+- El bot guarda cada ronda en `memoria.json`
+- Evalúa si sus predicciones anteriores fueron correctas
+- Ajusta automáticamente sus predicciones según su precisión histórica
+- Cuanto más tiempo corra, mejor se vuelven sus recomendaciones
 
 ---
 
@@ -28,6 +50,7 @@ El bot analiza las últimas **10, 20 y 50 rondas** y detecta los siguientes patr
 
 ### Requisitos
 - [Node.js](https://nodejs.org/) 18 o superior
+- Pantalla visible con el juego Crash/Aviator abierto
 
 ### Pasos
 
@@ -40,14 +63,12 @@ cd CRASH-BOT-
 npm install
 
 # 3. Configurar variables de entorno
-# edita .env directamente
+# edita .env con tus credenciales de Telegram
 ```
 
 ---
 
 ## Configuración del archivo `.env`
-
-Edita el archivo `.env` con tus credenciales de Telegram:
 
 ```env
 # Telegram
@@ -68,7 +89,7 @@ TELEGRAM_CHAT_ID=tu_chat_id
    ```
    https://api.telegram.org/bot<TU_TOKEN>/getUpdates
    ```
-3. Busca el campo `"chat":{"id":...}` en la respuesta JSON — ese es tu `TELEGRAM_CHAT_ID`.
+3. Busca el campo `"chat":{"id":...}` en la respuesta JSON.
 
 ---
 
@@ -78,84 +99,91 @@ TELEGRAM_CHAT_ID=tu_chat_id
 npm start
 ```
 
-El bot iniciará, enviará `🚀 Bot activo y analizando rondas.` por Telegram y comenzará a analizar cada 5 segundos.
+El bot:
+1. Carga su memoria previa (si existe)
+2. Inicializa el lector OCR
+3. Comienza a capturar la pantalla cada 3 segundos
+4. Lee multiplicadores y analiza patrones
+5. Envía notificaciones por Telegram cuando detecta oportunidades
 
 ---
 
-## Notificaciones que recibirás por Telegram
+## Notificaciones por Telegram
 
 ### Al iniciar
 ```
-🚀 Bot activo y analizando rondas.
+🚀 CRASH BOT activo
+
+📸 Leyendo pantalla en vivo
+🧠 Rondas en memoria: 150
+🎯 Precisión: 62.5%
 ```
 
-### Señal de entrada
+### Señal de apostar
 ```
-🚨 ENTRAR
+✅ APOSTAR
 
-Predicción: 5.20x
-Retiro seguro: 4.70x
-Riesgo: Medio
+🎯 Retirar en: 3.50x
+⚠️ Riesgo: MEDIO
+📊 Confianza: MEDIA-ALTA
 
-Últimas rondas: 1.2x, 1.5x, 1.1x, 1.3x, 1.4x
-Patrón: 7 de las últimas 10 rondas fueron < 2x
+💡 14/20 rondas recientes fueron < 2x
+
+Últimas: 1.2x, 1.5x, 1.1x, 1.3x, 1.4x
+🧠 Precisión del bot: 62.5%
 ```
 
-### Alerta de ronda alta
+### Señal de no apostar
 ```
-🔥 POSIBLE ALTA
+❌ NO APOSTAR
 
-Se detecta patrón de subida.
-Últimas rondas: 1.2x, 1.5x, 1.1x, 1.3x, 1.4x
+⚠️ Riesgo: ALTO
+📊 Confianza: ALTA
 
-Posible explosión > 8.50x.
-Basado en: Promedio últimas 50 rondas: 5.30x
+💡 Rondas recientes muy altas — probable caída fuerte
+
+Últimas: 15.2x, 8.5x, 12.1x, 9.3x, 7.4x
+🧠 Precisión del bot: 62.5%
 ```
 
 ---
 
-## Control anti-spam
+## Consola en vivo
 
-- Mínimo **4 segundos** entre mensajes.
-- Los mensajes **idénticos consecutivos** no se reenvían.
-
----
-
-## Despliegue gratuito (sin costos)
-
-### Opción 1 – Replit (recomendado para empezar)
-
-1. Crea una cuenta en [replit.com](https://replit.com).
-2. Crea un nuevo Repl de tipo **Node.js**.
-3. Sube los archivos del proyecto (o importa desde GitHub).
-4. En la sección **Secrets** (ícono de candado), añade:
-   - `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
-5. En la consola ejecuta `npm install && npm start`.
-6. Para mantenerlo activo 24/7 usa [UptimeRobot](https://uptimerobot.com).
-
-### Opción 2 – Glitch
-
-1. Crea una cuenta en [glitch.com](https://glitch.com).
-2. Crea un nuevo proyecto Node.js e importa el repositorio.
-3. Añade las variables de entorno en el archivo `.env` de Glitch.
-4. El proyecto se ejecuta automáticamente.
-
-### Opción 3 – Railway (500 horas gratis al mes)
-
-1. Crea una cuenta en [railway.app](https://railway.app).
-2. Conecta tu repositorio de GitHub.
-3. Añade las variables de entorno en la sección **Variables**.
-4. Railway detecta automáticamente que es Node.js y ejecuta `npm start`.
+```
+╔══════════════════════════════════════════╗
+║          CRASH BOT - EN VIVO             ║
+╠══════════════════════════════════════════╣
+║  Último detectado:  3.50x               ║
+║  Últimas 5: 1.2x → 1.5x → 1.1x → ...  ║
+╠══════════════════════════════════════════╣
+║  ✅ Acción:  APOSTAR                     ║
+║  🎯 Retirar en:  3.50x                  ║
+║  ⚠️ Riesgo:  MEDIO                      ║
+║  📊 Confianza:  MEDIA-ALTA              ║
+║  💡 Razón:  14/20 rondas < 2x           ║
+╠══════════════════════════════════════════╣
+║  🧠 Rondas en memoria: 150              ║
+║  🎯 Precisión: 62.5%                    ║
+║     (50/80 predicciones acertadas)       ║
+╚══════════════════════════════════════════╝
+```
 
 ---
 
-## Módulos del bot
+## Módulos
 
-| Función | Descripción |
+| Archivo | Descripción |
 |---|---|
-| `analizarRondas(rondas)` | Calcula bajos, promedio y tendencia de una lista de rondas |
-| `detectarPatron()` | Evalúa el historial y devuelve el patrón activo |
-| `generarPrediccion(patron)` | Genera predicción, retiro seguro y nivel de riesgo |
-| `enviarConControl(mensaje)` | Envía por Telegram con control anti-spam y anti-duplicados |
-| `ciclo()` | Loop principal: obtiene ronda, analiza y notifica |
+| `bot.js` | Motor principal: captura, OCR, análisis, predicción y aprendizaje |
+| `telegram.js` | Módulo de notificaciones por Telegram |
+
+---
+
+## Archivos generados
+
+| Archivo | Descripción |
+|---|---|
+| `memoria.json` | Historial de rondas y estadísticas de precisión (se genera automáticamente) |
+| `captura.png` | Última captura de pantalla (se sobreescribe cada ciclo) |
 
