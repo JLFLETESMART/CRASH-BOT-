@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "node -e \"require('./telegram'); console.log('OK')\"",
-    "start": "node bot.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
