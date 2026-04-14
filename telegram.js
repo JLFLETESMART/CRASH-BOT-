@@ -6,8 +6,30 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 
 let bot = null;
 
-if (token) {
-  bot = new TelegramBot(token);
+// Verificar que el token está definido
+if (!token) {
+  console.error("[Telegram] ERROR: TELEGRAM_TOKEN no está definido en .env");
+} else {
+  // CAMBIO CLAVE: polling: true para recibir mensajes
+  bot = new TelegramBot(token, { polling: true });
+  console.log("[Telegram] Bot iniciado");
+  console.log("[Telegram] Polling activo");
+
+  // Manejar errores de polling sin crashear
+  bot.on("polling_error", (err) => {
+    console.error("[Telegram] Error de polling:", err.message);
+  });
+
+  // Responder a /start
+  bot.onText(/\/start/, (msg) => {
+    console.log("[Telegram] Comando /start recibido de chat:", msg.chat.id);
+    bot.sendMessage(msg.chat.id, "Bot activo 🔥");
+  });
+
+  // Log de cualquier mensaje recibido
+  bot.on("message", (msg) => {
+    console.log("[Telegram] Mensaje recibido:", msg.text);
+  });
 }
 
 /**

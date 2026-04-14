@@ -249,6 +249,8 @@ async function ciclo() {
 
 // --- Inicialización ---
 (async () => {
+  console.log("[CRASH-BOT] Telegram iniciado");
+  
   try {
     await sendNotification("🚀 Bot activo y analizando rondas.");
   } catch (err) {
