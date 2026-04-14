@@ -92,8 +92,9 @@ const server = http.createServer((req, res) => {
   await BotService.start();
 
   // Register graceful-shutdown callbacks (wired to SIGTERM/SIGINT)
-  onShutdown(() => BotService.stop());
+  // Close the HTTP server first (stop accepting new requests), then stop the bot
   onShutdown(() => new Promise(resolve => server.close(resolve)));
+  onShutdown(() => BotService.stop());
 
   // Periodic self-check every 30 seconds: restart if not running OR cycle is stale
   setInterval(() => {

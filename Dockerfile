@@ -17,8 +17,8 @@ COPY . .
 # ── Production stage ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS production
 
-# Install dumb-init for proper signal handling, and native-module build deps
-RUN apk add --no-cache dumb-init python3 make g++
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
@@ -26,10 +26,13 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser  -S nodejs -u 1001
 
-# Copy dependency manifests and install production-only dependencies
-# Lifecycle scripts are enabled so native modules (e.g. better-sqlite3) compile correctly
+# Copy dependency manifests and install production-only dependencies.
+# Build tools are installed temporarily for native module compilation (e.g. better-sqlite3)
+# and removed in the same layer to keep the image lean.
 COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev
+RUN apk add --no-cache python3 make g++ && \
+    npm ci --omit=dev && \
+    apk del python3 make g++
 
 # Copy source files
 COPY --from=builder /app/src ./src
