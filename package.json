@@ -2,28 +2,21 @@
   "name": "crash-bot",
   "version": "1.0.0",
   "description": "Crash game trading bot with Telegram notifications",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "test": "node -e \"require('./telegram'); console.log('OK')\"",
-    "start": "node server.js"
+    "test": "node --check index.js && node -e \"require('./telegram'); console.log('OK')\"",
+    "start": "node index.js",
+    "start:server": "node server.js",
+    "start:bot": "node bot.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "axios": "^1.15.0",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
-    "fs": "^0.0.1-security",
-    "jimp": "^1.6.1",
-    "node-binance-api": "^1.0.26",
     "node-telegram-bot-api": "^0.66.0",
-    "screenshot-desktop": "^1.15.3",
-    "sharp": "^0.34.5",
-    "socket.io": "^4.8.3",
-    "technicalindicators": "^3.1.0",
-    "tesseract.js": "^5.0.4",
-    "ws": "^8.20.0"
+    "socket.io": "^4.8.3"
   }
 }
