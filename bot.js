@@ -1,9 +1,13 @@
 require("dotenv").config();
 const { sendNotification } = require("./telegram");
+const { mostrarEstado } = require("./mostrarEstado");
 
 // --- Historial de rondas ---
 let historial = [];
 const MAX_HISTORIAL = 200;
+
+// --- Banca ---
+let banca = 1000;
 
 // --- Control anti-spam ---
 let ultimoMensaje = "";
@@ -167,7 +171,6 @@ async function enviarConControl(mensaje) {
   ultimoMensaje = mensaje;
   ultimoTiempoMensaje = Date.now();
 
-  console.log(mensaje.replace(/\*/g, "").replace(/_/g, ""));
   await sendNotification(mensaje);
 }
 
@@ -179,12 +182,26 @@ async function ciclo() {
   historial.push(nueva);
   if (historial.length > MAX_HISTORIAL) historial.shift();
 
-  console.log(`📊 Nueva ronda: ${nueva}x | Últimas 10: [${historial.slice(-10).join(", ")}]`);
-
-  if (historial.length < 10) return;
+  if (historial.length < 10) {
+    mostrarEstado({ estado: "ESPERAR" }, banca, nueva);
+    return;
+  }
 
   const { patron, descripcion } = detectarPatron();
   const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron);
+
+  // Mapear a decision para mostrarEstado
+  const decision = {
+    estado: (nivel === "ENTRAR" || nivel === "ALTA") ? "ENTRAR" : "ESPERAR",
+    cashout: retiroSeguro
+  };
+
+  // Marcar mercado inestable en patrones de alta frecuencia de caídas
+  if (patron === "FRECUENCIA_CAIDAS") {
+    decision.estado += " PAUSA";
+  }
+
+  mostrarEstado(decision, banca, nueva);
 
   if (nivel === "ENTRAR") {
     const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
@@ -210,11 +227,11 @@ async function ciclo() {
 
 // --- Inicialización ---
 (async () => {
-  console.log("🚀 Bot activo y analizando rondas.");
+  mostrarEstado({ estado: "ESPERAR" }, banca, 0);
   try {
     await sendNotification("🚀 Bot activo y analizando rondas.");
-  } catch (err) {
-    console.error("[Telegram] Error al notificar inicio:", err.message);
+  } catch (_) {
+    // Error silenciado — se mantiene la consola limpia
   }
 
   setInterval(ciclo, 5000);
