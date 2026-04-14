@@ -11,6 +11,7 @@ let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
 let intervalHandle = null;
 let isRunning = false;
+let cicloEnCurso = false; // in-flight guard to prevent overlapping cycles
 
 // --- Public status for health check ---
 const status = {
@@ -52,7 +53,7 @@ function analizarRondas(rondas) {
   if (anteriores5.length >= 3 && ultimos5.length >= 3) {
     const promUltimos   = ultimos5.reduce((a, b) => a + b, 0)   / ultimos5.length;
     const promAnteriores = anteriores5.reduce((a, b) => a + b, 0) / anteriores5.length;
-    tendenciaSubida = promUltimos < promAnteriores;
+    tendenciaSubida = promUltimos > promAnteriores;
   }
 
   return { bajos, promedio, tendenciaSubida };
@@ -176,8 +177,14 @@ async function enviarConControl(mensaje) {
 
 /**
  * Main cycle: fetches a new round, analyses patterns, and notifies when appropriate.
+ * Protected by an in-flight guard so overlapping invocations are skipped.
  */
 async function ciclo() {
+  if (cicloEnCurso) {
+    logger.debug("Previous cycle still in progress – skipping this tick.");
+    return;
+  }
+  cicloEnCurso = true;
   try {
     const nueva = obtenerNuevaRonda();
     historial.push(nueva);
@@ -225,6 +232,8 @@ async function ciclo() {
     status.errorCount += 1;
     logger.error(`Error in ciclo(): ${err.message}`);
     if (err.stack) logger.error(err.stack);
+  } finally {
+    cicloEnCurso = false;
   }
 }
 
@@ -262,6 +271,7 @@ function stop() {
     intervalHandle = null;
   }
   isRunning = false;
+  cicloEnCurso = false;
   logger.info("BotService stopped.");
 }
 
@@ -273,6 +283,7 @@ function getStatus() {
     ...status,
     isRunning,
     historialSize: historial.length,
+    intervalMs: config.bot.intervalMs,
   };
 }
 

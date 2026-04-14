@@ -3,7 +3,7 @@
 const http = require("http");
 const config = require("./config");
 const logger = require("./logger");
-const { setupGlobalErrorHandlers } = require("./middlewares/errorHandler");
+const { setupGlobalErrorHandlers, onShutdown } = require("./middlewares/errorHandler");
 const DatabaseService = require("./services/DatabaseService");
 const TelegramService = require("./services/TelegramService");
 const BotService = require("./services/BotService");
@@ -11,19 +11,53 @@ const BotService = require("./services/BotService");
 // --- Setup global error handlers first ---
 setupGlobalErrorHandlers();
 
+/**
+ * Evaluates whether the bot is truly healthy based on:
+ *  - isRunning flag
+ *  - lastCycleAt freshness (must be within 3× intervalMs)
+ *  - errorCount (circuit-breaker at ≥ 10 consecutive errors)
+ */
+function evaluateBotHealth(botStatus) {
+  const running = Boolean(botStatus && botStatus.isRunning);
+  const intervalMs = Number((botStatus && botStatus.intervalMs) || config.bot.intervalMs);
+  const freshnessWindowMs = intervalMs * 3;
+
+  let stale = false;
+  if (botStatus && botStatus.lastCycleAt) {
+    const lastCycle = new Date(botStatus.lastCycleAt);
+    if (!Number.isNaN(lastCycle.getTime())) {
+      stale = Date.now() - lastCycle.getTime() > freshnessWindowMs;
+    }
+  } else {
+    // No cycle has run yet – only stale after the freshness window has elapsed from start
+    const startedAt = botStatus && botStatus.startedAt ? new Date(botStatus.startedAt) : new Date();
+    stale = Date.now() - startedAt.getTime() > freshnessWindowMs;
+  }
+
+  const errorCount = Number((botStatus && botStatus.errorCount) || 0);
+  const hasExcessiveErrors = errorCount >= 10;
+
+  const healthy = running && !stale && !hasExcessiveErrors;
+  return {
+    healthy,
+    checks: { running, stale, hasExcessiveErrors, freshnessWindowMs, errorThreshold: 10 },
+  };
+}
+
 // --- Simple HTTP server for health checks ---
 const server = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/health") {
     const botStatus = BotService.getStatus();
-    const healthy = botStatus.isRunning;
+    const health = evaluateBotHealth(botStatus);
     const payload = JSON.stringify({
-      status: healthy ? "ok" : "degraded",
+      status: health.healthy ? "ok" : "degraded",
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       bot: botStatus,
+      health: health.checks,
     });
 
-    res.writeHead(healthy ? 200 : 503, {
+    res.writeHead(health.healthy ? 200 : 503, {
       "Content-Type": "application/json",
       "Content-Length": Buffer.byteLength(payload),
     });
@@ -57,11 +91,17 @@ const server = http.createServer((req, res) => {
   // Start the bot
   await BotService.start();
 
-  // Periodic self-check every 30 seconds
+  // Register graceful-shutdown callbacks (wired to SIGTERM/SIGINT)
+  onShutdown(() => BotService.stop());
+  onShutdown(() => new Promise(resolve => server.close(resolve)));
+
+  // Periodic self-check every 30 seconds: restart if not running OR cycle is stale
   setInterval(() => {
     const s = BotService.getStatus();
-    if (!s.isRunning) {
-      logger.warn("Bot appears to have stopped – attempting restart...");
+    const { healthy } = evaluateBotHealth(s);
+    if (!healthy) {
+      logger.warn("Bot health check failed – attempting restart...");
+      BotService.stop();
       BotService.start().catch(err => logger.error(`Restart failed: ${err.message}`));
     }
   }, config.bot.healthCheckIntervalMs);

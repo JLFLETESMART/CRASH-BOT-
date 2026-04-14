@@ -196,9 +196,10 @@ Basado en: Promedio últimas 50 rondas: 5.30x
 
 | Módulo | Descripción |
 |---|---|
-| `BotService.analizarRondas()` | Calcula bajos, promedio y tendencia |
-| `BotService.detectarPatron()` | Evalúa el historial y devuelve el patrón activo |
-| `BotService.generarPrediccion()` | Genera predicción, retiro seguro y nivel de riesgo |
+| `BotService.start()` | Inicia el bot y pone en marcha el ciclo principal de análisis |
+| `BotService.stop()` | Detiene la ejecución del bot de forma controlada |
+| `BotService.getStatus()` | Devuelve el estado actual del bot (usado por `/health` y el auto-check) |
+| `BotService` (lógica interna) | Analiza rondas, detecta patrones y genera predicciones mediante helpers internos no expuestos como API pública |
 | `TelegramService.sendNotification()` | Envía por Telegram con retry automático |
 | `DatabaseService.saveRound()` | Persiste cada ronda en SQLite |
 | `retry()` | Reintentos con exponential backoff |

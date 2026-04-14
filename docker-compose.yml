@@ -29,13 +29,9 @@ services:
     networks:
       - bot_network
 
-    # Resource limits (adjust to your VPS)
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 128M
+    # Resource limits for non-Swarm docker compose deployments (adjust to your VPS)
+    mem_limit: 512m
+    mem_reservation: 128m
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]

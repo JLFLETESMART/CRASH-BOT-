@@ -6,10 +6,24 @@ function optionalEnv(name, defaultValue = "") {
   return (process.env[name] || defaultValue).trim();
 }
 
+/**
+ * Parses an integer env var. Falls back to `defaultValue` (and logs a warning)
+ * when the value is missing, non-numeric, NaN, or non-positive.
+ */
+function parseIntEnv(name, defaultValue) {
+  const raw = optionalEnv(name, String(defaultValue));
+  const parsed = parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    console.warn(`[config] Invalid value for ${name}: "${raw}" – using default ${defaultValue}`);
+    return defaultValue;
+  }
+  return parsed;
+}
+
 // --- Validate and export all configuration ---
 const config = {
   nodeEnv: optionalEnv("NODE_ENV", "production"),
-  port: parseInt(optionalEnv("PORT", "3000"), 10),
+  port: parseIntEnv("PORT", 3000),
   logLevel: optionalEnv("LOG_LEVEL", "info"),
 
   telegram: {
@@ -27,9 +41,9 @@ const config = {
   },
 
   bot: {
-    intervalMs: parseInt(optionalEnv("BOT_INTERVAL_MS", "5000"), 10),
-    maxHistorial: parseInt(optionalEnv("MAX_HISTORIAL", "200"), 10),
-    intervalMinMs: parseInt(optionalEnv("INTERVALO_MIN_MS", "4000"), 10),
+    intervalMs: parseIntEnv("BOT_INTERVAL_MS", 5000),
+    maxHistorial: parseIntEnv("MAX_HISTORIAL", 200),
+    intervalMinMs: parseIntEnv("INTERVALO_MIN_MS", 4000),
     healthCheckIntervalMs: 30000,
   },
 };
