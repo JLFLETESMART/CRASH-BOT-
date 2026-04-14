@@ -10,6 +10,19 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 4000;
 
+// --- Round distribution thresholds ---
+const ROUND_DIST = [
+  { threshold: 0.50, min: 1,  range: 1  },  // 1.00 – 2.00
+  { threshold: 0.75, min: 2,  range: 3  },  // 2.00 – 5.00
+  { threshold: 0.88, min: 5,  range: 5  },  // 5.00 – 10.00
+  { threshold: 0.95, min: 10, range: 10 },  // 10.00 – 20.00
+  { threshold: 1.00, min: 20, range: 30 },  // 20.00 – 50.00
+];
+
+// --- Banca multipliers ---
+const BANCA_GAIN_MULTIPLIER = 1.02;
+const BANCA_LOSS_MULTIPLIER = 0.995;
+
 app.use(express.static("public"));
 
 // --- Historial de rondas ---
@@ -30,11 +43,10 @@ const INTERVALO_MIN_MS = 4000;
  */
 function obtenerNuevaRonda() {
   const r = Math.random();
-  if (r < 0.50) return +(1  + Math.random() * 1).toFixed(2);
-  if (r < 0.75) return +(2  + Math.random() * 3).toFixed(2);
-  if (r < 0.88) return +(5  + Math.random() * 5).toFixed(2);
-  if (r < 0.95) return +(10 + Math.random() * 10).toFixed(2);
-  return +(20 + Math.random() * 30).toFixed(2);
+  for (const { threshold, min, range } of ROUND_DIST) {
+    if (r < threshold) return +(min + Math.random() * range).toFixed(2);
+  }
+  return +(ROUND_DIST[ROUND_DIST.length - 1].min + Math.random() * ROUND_DIST[ROUND_DIST.length - 1].range).toFixed(2);
 }
 
 /**
@@ -191,9 +203,9 @@ async function ciclo() {
 
   // Actualizar banca simulada
   if (nivel === "ENTRAR") {
-    banca = +(banca * 1.02).toFixed(2);
+    banca = +(banca * BANCA_GAIN_MULTIPLIER).toFixed(2);
   } else if (nivel === "ESPERAR") {
-    banca = +(banca * 0.995).toFixed(2);
+    banca = +(banca * BANCA_LOSS_MULTIPLIER).toFixed(2);
   }
 
   const estadoPanel = nivel === "ALTA" ? "POSIBLE ALTA" : nivel;
