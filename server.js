@@ -59,7 +59,7 @@ async function initBinance(retries = 3) {
       const errMsg = err.body || err.message || String(err);
       console.error(`❌ Error conectando a Binance (intento ${attempt}/${retries}): ${errMsg}`);
       if (attempt < retries) {
-        const delay = attempt * 5000;
+        const delay = Math.pow(2, attempt - 1) * 5000; // 5s, 10s, 20s
         console.log(`⏳ Reintentando en ${delay / 1000} segundos...`);
         await new Promise(r => setTimeout(r, delay));
       }
@@ -84,10 +84,15 @@ async function buy(price) {
 
   console.log("🟢 COMPRANDO BTC");
 
-  await binance.marketBuy("BTCUSDT", 0.0001);
-
-  position = "LONG";
-  await sendNotification(`🟢 *COMPRA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
+  try {
+    await binance.marketBuy("BTCUSDT", 0.0001);
+    position = "LONG";
+    await sendNotification(`🟢 *COMPRA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
+  } catch (err) {
+    const errMsg = err.body || err.message || String(err);
+    console.error("❌ Error al ejecutar compra:", errMsg);
+    await sendNotification(`⚠️ *Error al comprar*\n\`${errMsg}\``);
+  }
 }
 
 // 💸 VENDER
@@ -96,10 +101,15 @@ async function sell(price) {
 
   console.log("🔴 VENDIENDO BTC");
 
-  await binance.marketSell("BTCUSDT", 0.0001);
-
-  position = null;
-  await sendNotification(`🔴 *VENTA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
+  try {
+    await binance.marketSell("BTCUSDT", 0.0001);
+    position = null;
+    await sendNotification(`🔴 *VENTA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
+  } catch (err) {
+    const errMsg = err.body || err.message || String(err);
+    console.error("❌ Error al ejecutar venta:", errMsg);
+    await sendNotification(`⚠️ *Error al vender*\n\`${errMsg}\``);
+  }
 }
 
 // 📡 LOOP DE TRADING
@@ -172,7 +182,7 @@ async function main() {
       + "Configura API_KEY y API_SECRET en el archivo .env para activar el trading. "
       + "El servidor HTTP sigue activo en el puerto 3000.";
     console.warn(msg);
-    await sendNotification("⚠️ *Bot iniciado sin trading*\nConfigura API\\_KEY y API\\_SECRET en .env.");
+    await sendNotification("⚠️ *Bot iniciado sin trading*\nConfigura API KEY y API SECRET en .env.");
     return;
   }
 
