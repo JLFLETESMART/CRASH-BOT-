@@ -87,12 +87,14 @@ function crearGestorBanca() {
       };
     }
 
+    // The amount lost is the bet before progression was applied
+    const apuestaAnterior = +(apuesta / config.factorProgresion).toFixed(2);
     return {
       banca,
       apuesta,
       rondaGanada: false,
       activo: true,
-      mensaje: `❌ Pérdida: -$${(banca + apuesta / config.factorProgresion - banca).toFixed(2)} → Banca: $${banca.toFixed(2)} | Próxima apuesta: $${apuesta.toFixed(2)}`,
+      mensaje: `❌ Pérdida: -$${apuestaAnterior.toFixed(2)} → Banca: $${banca.toFixed(2)} | Próxima apuesta: $${apuesta.toFixed(2)}`,
     };
   }
 

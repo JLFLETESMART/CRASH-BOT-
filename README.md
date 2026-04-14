@@ -130,7 +130,7 @@ TELEGRAM_CHAT_ID=tu_chat_id
    ```
    https://api.telegram.org/bot<TU_TOKEN>/getUpdates
    ```
-3. Busca el campo `"chat":{"id":...}` en la respuesta JSON.
+3. Busca el campo `"chat":{"id":...}` en la respuesta JSON — ese es tu `TELEGRAM_CHAT_ID`.
 
 ---
 
