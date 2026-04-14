@@ -11,7 +11,8 @@ let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
 let intervalHandle = null;
 let isRunning = false;
-let cicloEnCurso = false; // in-flight guard to prevent overlapping cycles
+let cicloEnCurso = false;     // in-flight guard to prevent overlapping cycles
+let cicloStartedAt = null;    // timestamp when current cycle started (for hung-cycle detection)
 
 // --- Public status for health check ---
 const status = {
@@ -185,6 +186,7 @@ async function ciclo() {
     return;
   }
   cicloEnCurso = true;
+  cicloStartedAt = Date.now();
   try {
     const nueva = obtenerNuevaRonda();
     historial.push(nueva);
@@ -234,6 +236,7 @@ async function ciclo() {
     if (err.stack) logger.error(err.stack);
   } finally {
     cicloEnCurso = false;
+    cicloStartedAt = null;
   }
 }
 
@@ -272,6 +275,7 @@ function stop() {
   }
   isRunning = false;
   cicloEnCurso = false;
+  cicloStartedAt = null;
   logger.info("BotService stopped.");
 }
 
@@ -284,6 +288,8 @@ function getStatus() {
     isRunning,
     historialSize: historial.length,
     intervalMs: config.bot.intervalMs,
+    cicloEnCurso,
+    cicloStartedAt,
   };
 }
 

@@ -16,6 +16,7 @@ setupGlobalErrorHandlers();
  *  - isRunning flag
  *  - lastCycleAt freshness (must be within 3× intervalMs)
  *  - errorCount (circuit-breaker at ≥ 10 consecutive errors)
+ *  - hung-cycle detection (cicloEnCurso stuck for > 5× intervalMs)
  */
 function evaluateBotHealth(botStatus) {
   const running = Boolean(botStatus && botStatus.isRunning);
@@ -37,10 +38,19 @@ function evaluateBotHealth(botStatus) {
   const errorCount = Number((botStatus && botStatus.errorCount) || 0);
   const hasExcessiveErrors = errorCount >= 10;
 
-  const healthy = running && !stale && !hasExcessiveErrors;
+  // Detect a hung cycle: cicloEnCurso has been true for more than 5× intervalMs
+  const hangThresholdMs = intervalMs * 5;
+  const hung = Boolean(
+    botStatus &&
+    botStatus.cicloEnCurso &&
+    botStatus.cicloStartedAt &&
+    Date.now() - botStatus.cicloStartedAt > hangThresholdMs
+  );
+
+  const healthy = running && !stale && !hasExcessiveErrors && !hung;
   return {
     healthy,
-    checks: { running, stale, hasExcessiveErrors, freshnessWindowMs, errorThreshold: 10 },
+    checks: { running, stale, hasExcessiveErrors, hung, freshnessWindowMs, errorThreshold: 10, hangThresholdMs },
   };
 }
 
@@ -93,7 +103,14 @@ const server = http.createServer((req, res) => {
 
   // Register graceful-shutdown callbacks (wired to SIGTERM/SIGINT)
   // Close the HTTP server first (stop accepting new requests), then stop the bot
-  onShutdown(() => new Promise(resolve => server.close(resolve)));
+  onShutdown(() => new Promise((resolve, reject) => server.close(err => {
+    if (err) {
+      logger.warn(`HTTP server close error during shutdown: ${err.message}`);
+      reject(err);
+    } else {
+      resolve();
+    }
+  })));
   onShutdown(() => BotService.stop());
 
   // Periodic self-check every 30 seconds: restart if not running OR cycle is stale

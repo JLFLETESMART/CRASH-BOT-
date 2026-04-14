@@ -6,10 +6,11 @@ WORKDIR /app
 # Copy only dependency manifests first (better layer caching)
 COPY package*.json ./
 
-# Install build dependencies required by native Node modules (e.g. better-sqlite3)
-# then install all dependencies with lifecycle scripts enabled
+# Install build dependencies required by native Node modules (e.g. better-sqlite3),
+# install all deps with lifecycle scripts enabled, then prune dev-only packages
 RUN apk add --no-cache python3 make g++ && \
-    npm ci
+    npm ci && \
+    npm prune --omit=dev
 
 # Copy source code
 COPY . .
@@ -26,13 +27,9 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser  -S nodejs -u 1001
 
-# Copy dependency manifests and install production-only dependencies.
-# Build tools are installed temporarily for native module compilation (e.g. better-sqlite3)
-# and removed in the same layer to keep the image lean.
+# Copy pruned production node_modules and package manifests from the builder
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
-RUN apk add --no-cache python3 make g++ && \
-    npm ci --omit=dev && \
-    apk del python3 make g++
 
 # Copy source files
 COPY --from=builder /app/src ./src

@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "node -e \"require('./src/config'); require('./src/logger'); require('./src/utils/retry'); console.log('OK – all modules load correctly')\"",
-    "build": "node -e \"const fs=require('fs'),path=require('path'),{execFileSync}=require('child_process');const walk=(d)=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const f=path.join(d,e.name);return e.isDirectory()?walk(f):e.isFile()&&f.endsWith('.js')?[f]:[];});walk('src').forEach(f=>execFileSync(process.execPath,['--check',f],{stdio:'inherit'}));console.log('Syntax OK');\"",
+    "build": "node scripts/validate-syntax.js",
     "lint": "eslint src/",
     "docker:build": "docker build -t crash-bot:latest .",
     "docker:run": "docker run --env-file .env -p 3000:3000 crash-bot:latest",
