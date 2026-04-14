@@ -39,7 +39,6 @@ async function buy(price) {
   await binance.marketBuy("BTCUSDT", 0.0001);
 
   position = "LONG";
-  mostrarEstado({ estado: "ENTRAR", cashout: +(price * 1.02).toFixed(2) }, banca, price);
   await sendNotification(`🟢 *COMPRA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
 }
 
@@ -50,7 +49,6 @@ async function sell(price) {
   await binance.marketSell("BTCUSDT", 0.0001);
 
   position = null;
-  mostrarEstado({ estado: "ESPERAR" }, banca, price);
   await sendNotification(`🔴 *VENTA ejecutada*\nPrecio: *$${price.toFixed(2)}*\nPar: BTCUSDT`);
 }
 
@@ -86,8 +84,10 @@ setInterval(async () => {
       position
     });
 
-  } catch (_) {
+  } catch (e) {
     mostrarEstado({ estado: "ESPERAR PAUSA" }, banca, 0);
+    const errMsg = e.body || e.message;
+    await sendNotification(`⚠️ *Error en el bot*\n\`${errMsg}\``);
   }
 }, 3000);
 
