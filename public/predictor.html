@@ -354,6 +354,7 @@
 <script>
   // ─── Estado ─────────────────────────────────────────────────────────────────
   const MAX_RONDAS = 30;
+  const MAX_VALUE  = 9999;
   let rondas = [];
 
   // ─── Referencias DOM ────────────────────────────────────────────────────────
@@ -382,7 +383,7 @@
    * Calcula estadísticas básicas sobre un arreglo de rondas.
    */
   function analizarRondas(arr) {
-    if (arr.length === 0) return { bajos: 0, medios: 0, altos: 0, promedio: 0, tendenciaSubida: false };
+    if (arr.length === 0) return { bajos: 0, medios: 0, altos: 0, promedio: 0, tendenciaBajando: false };
     const bajos  = arr.filter(x => x < 2).length;
     const medios = arr.filter(x => x >= 2 && x < 5).length;
     const altos  = arr.filter(x => x >= 5).length;
@@ -393,9 +394,9 @@
     const segunda = arr.slice(mitad);
     const promPrimera = primera.length ? primera.reduce((a,b)=>a+b,0)/primera.length : 0;
     const promSegunda = segunda.length ? segunda.reduce((a,b)=>a+b,0)/segunda.length : 0;
-    const tendenciaSubida = promSegunda < promPrimera; // bajando → posible rebote
+    const tendenciaBajando = promSegunda < promPrimera; // recientes < anteriores → bajando → posible rebote
 
-    return { bajos, medios, altos, promedio, tendenciaSubida };
+    return { bajos, medios, altos, promedio, tendenciaBajando };
   }
 
   /**
@@ -420,8 +421,8 @@
       return { patron: 'FRECUENCIA_CAIDAS', descripcion: `${an5.bajos} de 5 últimas < 2x` };
     }
 
-    // Tendencia subida: valores recientes bajos después de rondas más altas
-    if (an10.tendenciaSubida && an5.bajos >= 2) {
+    // Tendencia bajando: valores recientes bajos después de rondas más altas
+    if (an10.tendenciaBajando && an5.bajos >= 2) {
       return { patron: 'TENDENCIA_SUBIDA', descripcion: 'Valores bajos recientes tras racha mixta' };
     }
 
@@ -489,9 +490,11 @@
    */
   function calcularProbabilidades(arr) {
     // Distribución base de Aviator: ~50% < 2x, ~25% 2-5x, ~12% > 5x
+    // El ~13% restante corresponde a rondas muy altas (>10x).
+    // Los valores se normalizan al final para sumar exactamente 100%.
     let pBaja  = 50;
     let pMedia = 25;
-    let pAlta  = 12; // el resto es rondas muy altas (>10x)
+    let pAlta  = 12;
 
     if (arr.length < 3) return { pBaja, pMedia, pAlta };
 
@@ -597,7 +600,7 @@
   function agregarRonda() {
     const raw = campoRonda.value.trim().replace(',', '.');
     const val = parseFloat(raw);
-    if (isNaN(val) || val <= 0 || val > 9999) {
+    if (isNaN(val) || val <= 0 || val > MAX_VALUE) {
       campoRonda.style.borderColor = 'rgba(248,113,113,.8)';
       setTimeout(() => campoRonda.style.borderColor = '', 800);
       return;
