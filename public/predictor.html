@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Predictor de Rondas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.1rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 18px;
+    }
+
+    /* ── Resultado principal ── */
+    #resultado {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 22px 16px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    #icono-estado { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
+
+    #texto-estado {
+      font-size: 2.6rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    #texto-estado.entrar   { color: #00ff88; text-shadow: 0 0 20px rgba(0,255,136,.5); }
+    #texto-estado.esperar  { color: #ffcc00; text-shadow: 0 0 20px rgba(255,204,0,.5); }
+    #texto-estado.alta     { color: #ff6600; text-shadow: 0 0 20px rgba(255,102,0,.5); }
+    #texto-estado.inicial  { color: rgba(255,255,255,.3); }
+
+    #subtexto {
+      margin-top: 6px;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,.45);
+      min-height: 18px;
+    }
+
+    /* ── Estadísticas ── */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,.06);
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.38);
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    #val-prediccion { color: #00d4ff; }
+    #val-retiro     { color: #00ff88; }
+    #val-riesgo     { color: #f8b4ff; }
+    #val-bajos      { color: #f87171; }
+
+    /* ── Rondas ingresadas ── */
+    #historial-wrap {
+      background: rgba(255,255,255,.04);
+      border-radius: 14px;
+      padding: 14px 12px;
+      margin-bottom: 16px;
+    }
+
+    .hs-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.38);
+      margin-bottom: 10px;
+    }
+
+    #pills-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      min-height: 28px;
+    }
+
+    .pill {
+      border-radius: 20px;
+      padding: 4px 11px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: rgba(255,255,255,.1);
+      color: #e2e8f0;
+    }
+
+    .pill.alta  { color: #00ff88; background: rgba(0,255,136,.12); }
+    .pill.baja  { color: #f87171; background: rgba(248,113,113,.12); }
+    .pill.reciente { outline: 2px solid rgba(255,255,255,.35); }
+
+    /* ── Input ── */
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    #campo-ronda {
+      flex: 1;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 14px 10px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    #campo-ronda::placeholder { color: rgba(255,255,255,.25); }
+    #campo-ronda:focus { border-color: rgba(0,212,255,.6); }
+
+    #btn-agregar {
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-size: 1rem;
+      font-weight: 800;
+      padding: 14px 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+    }
+
+    #btn-agregar:active { opacity: 0.8; }
+
+    /* ── Teclado rápido ── */
+    .teclado {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tecla {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 11px 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .tecla:active { background: rgba(255,255,255,.18); }
+
+    /* ── Botón limpiar ── */
+    #btn-limpiar {
+      width: 100%;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      color: rgba(255,255,255,.5);
+      font-size: 0.85rem;
+      padding: 11px;
+      cursor: pointer;
+      margin-bottom: 18px;
+    }
+
+    #btn-limpiar:active { background: rgba(255,100,100,.15); }
+
+    /* ── Barra de probabilidad ── */
+    #prob-wrap {
+      background: rgba(255,255,255,.04);
+      border-radius: 14px;
+      padding: 14px 12px;
+      margin-bottom: 16px;
+    }
+
+    .prob-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.38);
+      margin-bottom: 10px;
+    }
+
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .prob-name {
+      font-size: 0.8rem;
+      width: 70px;
+      color: rgba(255,255,255,.7);
+      flex-shrink: 0;
+    }
+
+    .prob-bar-bg {
+      flex: 1;
+      background: rgba(255,255,255,.08);
+      border-radius: 6px;
+      height: 12px;
+      overflow: hidden;
+    }
+
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.5s ease;
+    }
+
+    .bar-baja  { background: linear-gradient(90deg, #f87171, #ef4444); }
+    .bar-media { background: linear-gradient(90deg, #ffcc00, #f59e0b); }
+    .bar-alta  { background: linear-gradient(90deg, #00ff88, #10b981); }
+
+    .prob-pct {
+      font-size: 0.8rem;
+      font-weight: 700;
+      width: 36px;
+      text-align: right;
+      color: rgba(255,255,255,.7);
+    }
+
+    /* ── Enlace volver ── */
+    .footer-link {
+      text-align: center;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,.25);
+      margin-top: 4px;
+    }
+
+    .footer-link a { color: rgba(255,255,255,.4); text-decoration: none; }
+
+    @media (max-width: 360px) {
+      #texto-estado { font-size: 2rem; }
+      .stat-value   { font-size: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎯 Predictor de Rondas</h1>
+
+  <!-- Resultado -->
+  <div id="resultado">
+    <div id="icono-estado">⏳</div>
+    <div id="texto-estado" class="inicial">INGRESA RONDAS</div>
+    <div id="subtexto">Necesitas al menos 3 rondas</div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">🎯 Predicción</div>
+      <div class="stat-value" id="val-prediccion">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">✅ Retiro seguro</div>
+      <div class="stat-value" id="val-retiro">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">⚠️ Riesgo</div>
+      <div class="stat-value" id="val-riesgo">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">🔴 Bajas (&lt;2x)</div>
+      <div class="stat-value" id="val-bajos">—</div>
+    </div>
+  </div>
+
+  <!-- Barras de probabilidad -->
+  <div id="prob-wrap">
+    <div class="prob-label">📊 Probabilidad próxima ronda</div>
+    <div class="prob-row">
+      <div class="prob-name">Baja (&lt;2x)</div>
+      <div class="prob-bar-bg"><div class="prob-bar-fill bar-baja" id="bar-baja" style="width:50%"></div></div>
+      <div class="prob-pct" id="pct-baja">50%</div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-name">Media (2-5x)</div>
+      <div class="prob-bar-bg"><div class="prob-bar-fill bar-media" id="bar-media" style="width:25%"></div></div>
+      <div class="prob-pct" id="pct-media">25%</div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-name">Alta (&gt;5x)</div>
+      <div class="prob-bar-bg"><div class="prob-bar-fill bar-alta" id="bar-alta" style="width:12%"></div></div>
+      <div class="prob-pct" id="pct-alta">12%</div>
+    </div>
+  </div>
+
+  <!-- Historial de rondas -->
+  <div id="historial-wrap">
+    <div class="hs-label">📋 Rondas ingresadas (<span id="cnt-rondas">0</span>)</div>
+    <div id="pills-wrap"><span style="color:rgba(255,255,255,.25);font-size:.85rem">Sin rondas todavía</span></div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input id="campo-ronda" type="number" inputmode="decimal" min="1" max="9999" step="0.01" placeholder="Ej: 1.23" />
+    <button id="btn-agregar">➕ Agregar</button>
+  </div>
+
+  <!-- Teclado rápido de valores comunes -->
+  <div class="teclado">
+    <button class="tecla" onclick="agregarRapido(1.0)">1x</button>
+    <button class="tecla" onclick="agregarRapido(1.5)">1.5x</button>
+    <button class="tecla" onclick="agregarRapido(2.0)">2x</button>
+    <button class="tecla" onclick="agregarRapido(3.0)">3x</button>
+    <button class="tecla" onclick="agregarRapido(5.0)">5x</button>
+    <button class="tecla" onclick="agregarRapido(7.0)">7x</button>
+    <button class="tecla" onclick="agregarRapido(10.0)">10x</button>
+    <button class="tecla" onclick="agregarRapido(20.0)">20x</button>
+  </div>
+
+  <button id="btn-limpiar">🗑️ Limpiar todo</button>
+
+  <div class="footer-link"><a href="/">← Panel principal</a></div>
+
+<script>
+  // ─── Estado ─────────────────────────────────────────────────────────────────
+  const MAX_RONDAS = 30;
+  let rondas = [];
+
+  // ─── Referencias DOM ────────────────────────────────────────────────────────
+  const campoRonda   = document.getElementById('campo-ronda');
+  const btnAgregar   = document.getElementById('btn-agregar');
+  const btnLimpiar   = document.getElementById('btn-limpiar');
+  const pillsWrap    = document.getElementById('pills-wrap');
+  const cntRondas    = document.getElementById('cnt-rondas');
+  const iconoEstado  = document.getElementById('icono-estado');
+  const textoEstado  = document.getElementById('texto-estado');
+  const subtexto     = document.getElementById('subtexto');
+  const valPrediccion = document.getElementById('val-prediccion');
+  const valRetiro    = document.getElementById('val-retiro');
+  const valRiesgo    = document.getElementById('val-riesgo');
+  const valBajos     = document.getElementById('val-bajos');
+  const barBaja      = document.getElementById('bar-baja');
+  const barMedia     = document.getElementById('bar-media');
+  const barAlta      = document.getElementById('bar-alta');
+  const pctBaja      = document.getElementById('pct-baja');
+  const pctMedia     = document.getElementById('pct-media');
+  const pctAlta      = document.getElementById('pct-alta');
+
+  // ─── Lógica de análisis ─────────────────────────────────────────────────────
+
+  /**
+   * Calcula estadísticas básicas sobre un arreglo de rondas.
+   */
+  function analizarRondas(arr) {
+    if (arr.length === 0) return { bajos: 0, medios: 0, altos: 0, promedio: 0, tendenciaSubida: false };
+    const bajos  = arr.filter(x => x < 2).length;
+    const medios = arr.filter(x => x >= 2 && x < 5).length;
+    const altos  = arr.filter(x => x >= 5).length;
+    const promedio = arr.reduce((a, b) => a + b, 0) / arr.length;
+
+    const mitad = Math.floor(arr.length / 2);
+    const primera = arr.slice(0, mitad);
+    const segunda = arr.slice(mitad);
+    const promPrimera = primera.length ? primera.reduce((a,b)=>a+b,0)/primera.length : 0;
+    const promSegunda = segunda.length ? segunda.reduce((a,b)=>a+b,0)/segunda.length : 0;
+    const tendenciaSubida = promSegunda < promPrimera; // bajando → posible rebote
+
+    return { bajos, medios, altos, promedio, tendenciaSubida };
+  }
+
+  /**
+   * Detecta el patrón actual basado en el historial de rondas.
+   */
+  function detectarPatron(arr) {
+    const n = arr.length;
+    if (n < 3) return { patron: 'INICIAL', descripcion: 'Pocas rondas' };
+
+    const ultimas10 = arr.slice(-Math.min(10, n));
+    const ultimas5  = arr.slice(-Math.min(5, n));
+    const an10 = analizarRondas(ultimas10);
+    const an5  = analizarRondas(ultimas5);
+
+    // Racha baja: más de 60% de las últimas rondas < 2x
+    if (an10.bajos / ultimas10.length >= 0.6) {
+      return { patron: 'RACHA_BAJA', descripcion: `${an10.bajos} de ${ultimas10.length} últimas < 2x — posible rebote` };
+    }
+
+    // Frecuencia alta de caídas en las últimas 5
+    if (an5.bajos >= 4) {
+      return { patron: 'FRECUENCIA_CAIDAS', descripcion: `${an5.bajos} de 5 últimas < 2x` };
+    }
+
+    // Tendencia subida: valores recientes bajos después de rondas más altas
+    if (an10.tendenciaSubida && an5.bajos >= 2) {
+      return { patron: 'TENDENCIA_SUBIDA', descripcion: 'Valores bajos recientes tras racha mixta' };
+    }
+
+    // Posible alta: promedio alto y pocas caídas recientes
+    if (an10.promedio > 4 && an5.bajos <= 1) {
+      return { patron: 'POSIBLE_ALTA', descripcion: `Promedio últimas ${ultimas10.length}: ${an10.promedio.toFixed(2)}x` };
+    }
+
+    return { patron: 'ESPERAR', descripcion: 'Sin patrón claro' };
+  }
+
+  /**
+   * Genera predicción con base en el patrón y el promedio reciente.
+   */
+  function generarPrediccion(patron, arr) {
+    const recientes = arr.slice(-10);
+    const promedio = recientes.length ? recientes.reduce((a,b)=>a+b,0)/recientes.length : 2;
+
+    let prediccion, margen, riesgo, nivel;
+
+    switch (patron) {
+      case 'RACHA_BAJA':
+        prediccion = Math.max(2.5, promedio * 1.6);
+        margen = 0.5;
+        riesgo = 'Medio';
+        nivel = 'ENTRAR';
+        break;
+      case 'FRECUENCIA_CAIDAS':
+        prediccion = Math.max(2.8, promedio * 1.9);
+        margen = 0.6;
+        riesgo = 'Medio-Alto';
+        nivel = 'ENTRAR';
+        break;
+      case 'TENDENCIA_SUBIDA':
+        prediccion = Math.max(3.5, promedio * 2.0);
+        margen = 0.8;
+        riesgo = 'Alto';
+        nivel = 'ENTRAR';
+        break;
+      case 'POSIBLE_ALTA':
+        prediccion = Math.max(6, promedio * 2.2);
+        margen = 1.5;
+        riesgo = 'Muy Alto';
+        nivel = 'POSIBLE ALTA';
+        break;
+      default:
+        prediccion = promedio;
+        margen = 0.5;
+        riesgo = 'Bajo';
+        nivel = 'ESPERAR';
+    }
+
+    return {
+      prediccion: +prediccion.toFixed(2),
+      retiroSeguro: +Math.max(1.1, prediccion - margen).toFixed(2),
+      riesgo,
+      nivel
+    };
+  }
+
+  /**
+   * Calcula probabilidades ajustadas según el historial reciente.
+   * Punto de partida: distribución base tipo Aviator.
+   * Se ajusta según la racha actual.
+   */
+  function calcularProbabilidades(arr) {
+    // Distribución base de Aviator: ~50% < 2x, ~25% 2-5x, ~12% > 5x
+    let pBaja  = 50;
+    let pMedia = 25;
+    let pAlta  = 12; // el resto es rondas muy altas (>10x)
+
+    if (arr.length < 3) return { pBaja, pMedia, pAlta };
+
+    const ultimas = arr.slice(-Math.min(10, arr.length));
+    const n = ultimas.length;
+    const bajos  = ultimas.filter(x => x < 2).length;
+    const altos  = ultimas.filter(x => x >= 5).length;
+
+    const ratioBajos = bajos / n;
+    const ratioAltos = altos / n;
+
+    // Muchas bajas recientes → probabilidad de que la próxima sea baja disminuye (rebote esperado)
+    if (ratioBajos > 0.6) {
+      pBaja  = Math.max(20, 50 - (ratioBajos - 0.5) * 80);
+      pMedia = Math.min(45, 25 + (ratioBajos - 0.5) * 60);
+      pAlta  = Math.min(30, 12 + (ratioBajos - 0.5) * 40);
+    }
+    // Muchas altas recientes → más probable que llegue una baja
+    else if (ratioAltos > 0.4) {
+      pBaja  = Math.min(70, 50 + (ratioAltos - 0.3) * 60);
+      pMedia = Math.max(15, 25 - (ratioAltos - 0.3) * 30);
+      pAlta  = Math.max(5,  12 - (ratioAltos - 0.3) * 25);
+    }
+
+    // Normalizar para que sumen 100
+    const suma = pBaja + pMedia + pAlta;
+    pBaja  = Math.round(pBaja  / suma * 100);
+    pMedia = Math.round(pMedia / suma * 100);
+    pAlta  = 100 - pBaja - pMedia;
+
+    return { pBaja, pMedia, pAlta };
+  }
+
+  // ─── Actualizar UI ───────────────────────────────────────────────────────────
+
+  function actualizarUI() {
+    // Actualizar pills
+    cntRondas.textContent = rondas.length;
+    if (rondas.length === 0) {
+      pillsWrap.innerHTML = '<span style="color:rgba(255,255,255,.25);font-size:.85rem">Sin rondas todavía</span>';
+    } else {
+      pillsWrap.innerHTML = rondas.map((r, i) => {
+        const esReciente = i === rondas.length - 1;
+        const clase = r >= 5 ? 'alta' : r < 2 ? 'baja' : '';
+        return `<span class="pill ${clase}${esReciente ? ' reciente' : ''}">${r}x</span>`;
+      }).join('');
+    }
+
+    if (rondas.length < 3) {
+      // Estado inicial
+      iconoEstado.textContent = '⏳';
+      textoEstado.className = 'inicial';
+      textoEstado.textContent = 'INGRESA RONDAS';
+      subtexto.textContent = `Necesitas al menos 3 rondas (tienes ${rondas.length})`;
+      valPrediccion.textContent = '—';
+      valRetiro.textContent = '—';
+      valRiesgo.textContent = '—';
+      valBajos.textContent = `${rondas.filter(x=>x<2).length} / ${rondas.length}`;
+      barBaja.style.width  = '50%'; pctBaja.textContent  = '50%';
+      barMedia.style.width = '25%'; pctMedia.textContent = '25%';
+      barAlta.style.width  = '12%'; pctAlta.textContent  = '12%';
+      return;
+    }
+
+    const { patron, descripcion } = detectarPatron(rondas);
+    const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron, rondas);
+    const { pBaja, pMedia, pAlta } = calcularProbabilidades(rondas);
+    const ultimas = rondas.slice(-Math.min(10, rondas.length));
+    const bajos = ultimas.filter(x => x < 2).length;
+
+    // Estado principal
+    textoEstado.className = '';
+    if (nivel === 'ENTRAR') {
+      iconoEstado.textContent = '🚨';
+      textoEstado.textContent = 'ENTRAR';
+      textoEstado.classList.add('entrar');
+    } else if (nivel === 'POSIBLE ALTA') {
+      iconoEstado.textContent = '🔥';
+      textoEstado.textContent = 'POSIBLE ALTA';
+      textoEstado.classList.add('alta');
+    } else {
+      iconoEstado.textContent = '⏳';
+      textoEstado.textContent = 'ESPERAR';
+      textoEstado.classList.add('esperar');
+    }
+
+    subtexto.textContent = descripcion;
+
+    // Stats
+    valPrediccion.textContent = prediccion + 'x';
+    valRetiro.textContent     = retiroSeguro + 'x';
+    valRiesgo.textContent     = riesgo;
+    valBajos.textContent      = `${bajos} / ${ultimas.length}`;
+
+    // Barras
+    barBaja.style.width  = pBaja  + '%'; pctBaja.textContent  = pBaja  + '%';
+    barMedia.style.width = pMedia + '%'; pctMedia.textContent = pMedia + '%';
+    barAlta.style.width  = pAlta  + '%'; pctAlta.textContent  = pAlta  + '%';
+  }
+
+  // ─── Agregar ronda ───────────────────────────────────────────────────────────
+
+  function agregarRonda() {
+    const raw = campoRonda.value.trim().replace(',', '.');
+    const val = parseFloat(raw);
+    if (isNaN(val) || val <= 0 || val > 9999) {
+      campoRonda.style.borderColor = 'rgba(248,113,113,.8)';
+      setTimeout(() => campoRonda.style.borderColor = '', 800);
+      return;
+    }
+    rondas.push(+val.toFixed(2));
+    if (rondas.length > MAX_RONDAS) rondas.shift();
+    campoRonda.value = '';
+    campoRonda.focus();
+    actualizarUI();
+    // Scroll hacia las rondas
+    pillsWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function agregarRapido(valor) {
+    rondas.push(valor);
+    if (rondas.length > MAX_RONDAS) rondas.shift();
+    actualizarUI();
+  }
+
+  // ─── Eventos ─────────────────────────────────────────────────────────────────
+
+  btnAgregar.addEventListener('click', agregarRonda);
+
+  campoRonda.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') agregarRonda();
+  });
+
+  btnLimpiar.addEventListener('click', () => {
+    rondas = [];
+    campoRonda.value = '';
+    actualizarUI();
+  });
+
+  // Inicializar
+  actualizarUI();
+</script>
+</body>
+</html>
