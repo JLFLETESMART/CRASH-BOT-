@@ -3,240 +3,611 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crash Bot — Panel</title>
+  <title>🚀 CRASH BOT — Panel</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --green:  #00ff88;
+      --yellow: #ffcc00;
+      --orange: #ff6600;
+      --red:    #f87171;
+      --cyan:   #00d4ff;
+      --purple: #a78bfa;
+      --bg1: #0a0a12;
+      --bg2: #10102a;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+    }
+
+    /* ── Animations ── */
+    @keyframes glow {
+      0%, 100% { text-shadow: 0 0 10px var(--green), 0 0 30px rgba(0,255,136,0.3); }
+      50%       { text-shadow: 0 0 20px var(--green), 0 0 60px rgba(0,255,136,0.6), 0 0 80px rgba(0,255,136,0.2); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+      50%       { transform: scale(1.03); box-shadow: 0 0 0 16px rgba(0,255,136,0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── Base ── */
     body {
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 50%, var(--bg1) 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
       color: #fff;
+      padding: 16px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Glass card ── */
+    .glass {
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
       padding: 20px;
     }
 
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 480px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    .section-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 12px;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header-title {
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      color: var(--green);
+      animation: glow 3s ease-in-out infinite;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.6);
+    }
+
+    #status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.3s;
+    }
+
+    #status-dot.online {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: dotPulse 1.6s ease-in-out infinite;
+    }
+
+    #clock {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── HERO SIGNAL ── */
+    .hero {
+      text-align: center;
+      padding: 28px 20px;
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+
+    .hero.state-entrar  { background: rgba(0,255,136,0.06);  border-color: rgba(0,255,136,0.25);  animation: pulse 1.8s ease-in-out infinite; }
+    .hero.state-posible { background: rgba(255,102,0,0.06);  border-color: rgba(255,102,0,0.25); }
+    .hero.state-esperar { background: rgba(255,204,0,0.04);  border-color: rgba(255,204,0,0.15); }
+
+    #signal-icon { font-size: 2.8rem; line-height: 1; margin-bottom: 10px; }
+
+    #signal-text {
+      font-size: 3.2rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      transition: color 0.4s, text-shadow 0.4s;
+    }
+
+    #signal-text.entrar  { color: var(--green);  text-shadow: 0 0 28px rgba(0,255,136,0.55); }
+    #signal-text.esperar { color: var(--yellow); text-shadow: 0 0 28px rgba(255,204,0,0.45); }
+    #signal-text.posible { color: var(--orange); text-shadow: 0 0 28px rgba(255,102,0,0.5); }
+
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px 12px;
       text-align: center;
     }
 
-    .card h1 {
-      font-size: 1.2rem;
-      letter-spacing: 0.18em;
+    .stat-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.13em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.45);
-      margin-bottom: 32px;
-    }
-
-    /* ── Signal block ── */
-    #signal-block {
-      margin-bottom: 28px;
-    }
-
-    #signal-icon {
-      font-size: 3.2rem;
-      line-height: 1;
+      color: rgba(255,255,255,0.38);
       margin-bottom: 8px;
     }
 
-    #signal-text {
-      font-size: 3rem;
+    .stat-value {
+      font-size: 1.55rem;
       font-weight: 800;
-      letter-spacing: 0.06em;
-      transition: color 0.4s ease;
+      transition: color 0.3s;
     }
 
-    #signal-text.entrar   { color: #00ff88; text-shadow: 0 0 24px rgba(0,255,136,0.5); }
-    #signal-text.esperar  { color: #ffcc00; text-shadow: 0 0 24px rgba(255,204,0,0.5); }
-    #signal-text.posible  { color: #ff6600; text-shadow: 0 0 24px rgba(255,102,0,0.5); }
+    #prediccion-value { color: var(--cyan); }
+    #cashout-value    { color: var(--green); }
+    #banca-value      { color: var(--purple); }
+    #ultima-value     { color: #fff; }
 
-    /* ── Stats grid ── */
-    .stats {
+    /* ── ANALYSIS ── */
+    .analysis-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
-      margin-bottom: 28px;
     }
 
-    .stat {
-      background: rgba(255, 255, 255, 0.07);
+    .analysis-card {
+      background: rgba(255,255,255,0.04);
       border-radius: 14px;
-      padding: 16px 12px;
+      padding: 14px 16px;
     }
 
-    .stat-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-      margin-bottom: 6px;
-    }
+    .analysis-card .section-label { margin-bottom: 8px; }
 
-    .stat-value {
-      font-size: 1.6rem;
+    #patron-badge {
+      display: inline-block;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
       font-weight: 700;
-      color: #fff;
+      letter-spacing: 0.05em;
+      background: rgba(0,212,255,0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0,212,255,0.3);
+      transition: all 0.3s;
     }
 
-    #cashout-value { color: #00d4ff; }
-    #banca-value   { color: #a78bfa; }
-
-    /* ── Last rounds ── */
-    .rounds-section {
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 14px;
-      padding: 16px 14px;
+    .risk-bar-wrap {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 8px;
     }
 
-    .rounds-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-      margin-bottom: 10px;
+    #risk-bar {
+      height: 100%;
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.6s ease, background 0.4s;
     }
 
+    #risk-label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    /* ── ROUNDS ── */
     #rounds-list {
       display: flex;
-      justify-content: center;
       gap: 8px;
       flex-wrap: wrap;
     }
 
     .round-pill {
-      background: rgba(255,255,255,0.1);
-      border-radius: 20px;
-      padding: 5px 13px;
-      font-size: 0.95rem;
-      font-weight: 600;
+      border-radius: 22px;
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      background: rgba(255,255,255,0.08);
       color: #e2e8f0;
     }
 
-    .round-pill.high { color: #00ff88; background: rgba(0,255,136,0.12); }
-    .round-pill.low  { color: #f87171; background: rgba(248,113,113,0.12); }
+    .round-pill.high { color: var(--green);  background: rgba(0,255,136,0.12); }
+    .round-pill.mid  { color: #e2e8f0;       background: rgba(255,255,255,0.1); }
+    .round-pill.low  { color: var(--red);    background: rgba(248,113,113,0.12); }
 
-    /* ── Footer ── */
+    /* ── BAR CHART ── */
+    .chart-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+      padding-top: 4px;
+    }
+
+    .bar {
+      flex: 1;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.35s ease, background 0.3s;
+      min-height: 4px;
+      position: relative;
+    }
+
+    .bar.high { background: var(--green); }
+    .bar.mid  { background: rgba(255,255,255,0.35); }
+    .bar.low  { background: var(--red); }
+
+    .bar-tip {
+      position: absolute;
+      bottom: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.5rem;
+      color: rgba(255,255,255,0.45);
+      white-space: nowrap;
+    }
+
+    /* ── HISTORY TABLE ── */
+    .table-wrap {
+      max-height: 260px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,18,0.95);
+      padding: 8px 12px;
+      text-align: left;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      animation: fadeIn 0.35s ease;
+    }
+
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    tbody td {
+      padding: 8px 12px;
+      color: rgba(255,255,255,0.75);
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .result-badge.high { color: var(--green); background: rgba(0,255,136,0.12); }
+    .result-badge.mid  { color: #e2e8f0;      background: rgba(255,255,255,0.08); }
+    .result-badge.low  { color: var(--red);   background: rgba(248,113,113,0.12); }
+
+    /* ── FOOTER ── */
     .footer {
-      margin-top: 28px;
-      font-size: 0.68rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.65rem;
       color: rgba(255,255,255,0.2);
       letter-spacing: 0.08em;
+      padding: 0 4px;
     }
 
-    #status-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #888;
-      margin-right: 6px;
-      vertical-align: middle;
-      transition: background 0.3s;
+    /* ── RESPONSIVE ── */
+    @media (max-width: 680px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .analysis-grid { grid-template-columns: 1fr; }
+      #signal-text { font-size: 2.4rem; }
     }
 
-    #status-dot.online { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-
-    @media (max-width: 360px) {
-      #signal-text { font-size: 2.2rem; }
-      .stats { grid-template-columns: 1fr; }
+    @media (max-width: 400px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .header-title { font-size: 1.4rem; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🤖 Crash Bot</h1>
+  <div class="container">
 
-    <div id="signal-block">
+    <!-- ── HEADER ── -->
+    <div class="glass header">
+      <div class="header-title">🚀 CRASH BOT</div>
+      <div class="header-right">
+        <div class="live-badge">
+          <span id="status-dot"></span>
+          <span id="status-text">Conectando…</span>
+        </div>
+        <div id="clock">--:--:--</div>
+      </div>
+    </div>
+
+    <!-- ── HERO SIGNAL ── -->
+    <div class="glass hero state-esperar" id="hero-card">
       <div id="signal-icon">⏳</div>
       <div id="signal-text" class="esperar">ESPERAR</div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
+    <!-- ── STATS GRID ── -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">🔮 Predicción</div>
+        <div class="stat-value" id="prediccion-value">—</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-label">🎯 Cashout</div>
         <div class="stat-value" id="cashout-value">—</div>
       </div>
-      <div class="stat">
+      <div class="stat-card">
         <div class="stat-label">💰 Banca</div>
         <div class="stat-value" id="banca-value">—</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">⚡ Última ronda</div>
+        <div class="stat-value" id="ultima-value">—</div>
+      </div>
     </div>
 
-    <div class="rounds-section">
-      <div class="rounds-label">📊 Últimas rondas</div>
-      <div id="rounds-list"><span class="round-pill">—</span></div>
+    <!-- ── ANALYSIS ── -->
+    <div class="analysis-grid">
+      <div class="glass analysis-card">
+        <div class="section-label">🧩 Patrón detectado</div>
+        <span id="patron-badge">—</span>
+      </div>
+      <div class="glass analysis-card">
+        <div class="section-label">⚠️ Nivel de riesgo</div>
+        <div id="risk-label">—</div>
+        <div class="risk-bar-wrap">
+          <div id="risk-bar"></div>
+        </div>
+      </div>
     </div>
 
+    <!-- ── ÚLTIMAS RONDAS PILLS + BAR CHART ── -->
+    <div class="glass">
+      <div class="section-label">📊 Últimas rondas</div>
+      <div id="rounds-list" style="margin-bottom:16px;"><span class="round-pill">—</span></div>
+      <div class="section-label">📈 Historial visual (últimas 20 rondas)</div>
+      <div class="chart-wrap" id="chart-bars"></div>
+    </div>
+
+    <!-- ── HISTORY TABLE ── -->
+    <div class="glass">
+      <div class="section-label">🗂️ Historial de rondas</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Multiplicador</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── FOOTER ── -->
     <div class="footer">
-      <span id="status-dot"></span>
-      <span id="status-text">Conectando…</span>
+      <span>CRASH BOT v1.0 — Panel en tiempo real</span>
+      <span>Rondas analizadas: <strong id="round-counter">0</strong></span>
     </div>
-  </div>
+
+  </div><!-- /container -->
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // ── Refs ──
+    const statusDot    = document.getElementById("status-dot");
+    const statusText   = document.getElementById("status-text");
+    const clockEl      = document.getElementById("clock");
+    const heroCard     = document.getElementById("hero-card");
+    const signalIcon   = document.getElementById("signal-icon");
+    const signalText   = document.getElementById("signal-text");
+    const prediccionEl = document.getElementById("prediccion-value");
+    const cashoutEl    = document.getElementById("cashout-value");
+    const bancaEl      = document.getElementById("banca-value");
+    const ultimaEl     = document.getElementById("ultima-value");
+    const patronBadge  = document.getElementById("patron-badge");
+    const riskLabel    = document.getElementById("risk-label");
+    const riskBar      = document.getElementById("risk-bar");
+    const roundsList   = document.getElementById("rounds-list");
+    const chartBars    = document.getElementById("chart-bars");
+    const historyBody  = document.getElementById("history-body");
+    const roundCounter = document.getElementById("round-counter");
+
+    // ── State ──
+    const MAX_HISTORY  = 20;   // number of rounds to keep client-side
+    let historialLocal = [];
+    let totalRondas    = 0;
+
+    // ── Real-time clock ──
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+      clockEl.textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── Risk helpers ──
+    const RISK_MAP = {
+      "Bajo":     { color: "#00ff88", pct: 20 },
+      "Medio":    { color: "#ffcc00", pct: 50 },
+      "Alto":     { color: "#ff6600", pct: 75 },
+      "Muy Alto": { color: "#f87171", pct: 100 }
+    };
+
+    function applyRisk(riesgo) {
+      const info = RISK_MAP[riesgo] || { color: "rgba(255,255,255,0.3)", pct: 0 };
+      riskLabel.textContent = riesgo || "—";
+      riskLabel.style.color = info.color;
+      riskBar.style.width      = info.pct + "%";
+      riskBar.style.background = info.color;
+    }
+
+    // ── Pill class helper ──
+    function pillClass(v) {
+      if (v >= 5) return "high";
+      if (v < 2)  return "low";
+      return "mid";
+    }
+
+    // ── Update bar chart ──
+    function updateChart() {
+      if (!historialLocal.length) return;
+      const maxVal = Math.max(...historialLocal, 2);
+      chartBars.innerHTML = historialLocal.map(v => {
+        const pct = Math.min((v / maxVal) * 100, 100);
+        const cls = v >= 5 ? "high" : v < 2 ? "low" : "mid";
+        return `<div class="bar ${cls}" style="height:${pct}%"><span class="bar-tip">${v}x</span></div>`;
+      }).join("");
+    }
+
+    // ── Add row to history table ──
+    function addHistoryRow(ronda, num) {
+      const cls = pillClass(ronda);
+      const label = ronda >= 5 ? "ALTA" : ronda < 2 ? "BAJA" : "MEDIA";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="color:rgba(255,255,255,0.35)">${num}</td>
+        <td style="font-weight:700">${ronda}x</td>
+        <td><span class="result-badge ${cls}">${label}</span></td>
+      `;
+      historyBody.insertBefore(tr, historyBody.firstChild);
+      // Keep max MAX_HISTORY rows
+      while (historyBody.rows.length > MAX_HISTORY) {
+        historyBody.deleteRow(historyBody.rows.length - 1);
+      }
+    }
+
+    // ── Socket.IO ──
     const socket = io();
 
-    const signalIcon = document.getElementById("signal-icon");
-    const signalText = document.getElementById("signal-text");
-    const cashoutEl  = document.getElementById("cashout-value");
-    const bancaEl    = document.getElementById("banca-value");
-    const roundsList = document.getElementById("rounds-list");
-    const statusDot  = document.getElementById("status-dot");
-    const statusText = document.getElementById("status-text");
-
     socket.on("connect", () => {
-      statusDot.className = "online";
+      statusDot.className  = "online";
       statusText.textContent = "En vivo";
     });
 
     socket.on("disconnect", () => {
-      statusDot.className = "";
+      statusDot.className  = "";
       statusText.textContent = "Desconectado";
     });
 
     socket.on("data", (payload) => {
-      const { decision, banca, ultimasRondas } = payload;
-      const estado = decision && decision.estado ? decision.estado : "ESPERAR";
+      const { decision, banca, ultimaRonda, ultimasRondas, prediccion, riesgo, patron } = payload;
+      const estado  = decision && decision.estado  ? decision.estado  : "ESPERAR";
       const cashout = decision && decision.cashout != null ? decision.cashout : null;
 
-      // --- Signal ---
+      // ── Hero signal ──
       signalText.textContent = estado;
-      signalText.className = "";
+      signalText.className   = "";
+      heroCard.className     = "glass hero";
+
       if (estado === "ENTRAR") {
         signalIcon.textContent = "🚨";
         signalText.classList.add("entrar");
+        heroCard.classList.add("state-entrar");
       } else if (estado === "POSIBLE ALTA") {
         signalIcon.textContent = "🔥";
         signalText.classList.add("posible");
+        heroCard.classList.add("state-posible");
       } else {
         signalIcon.textContent = "⏳";
         signalText.classList.add("esperar");
+        heroCard.classList.add("state-esperar");
       }
 
-      // --- Cashout ---
-      cashoutEl.textContent = cashout != null ? cashout + "x" : "—";
+      // ── Stats ──
+      prediccionEl.textContent = prediccion  != null ? prediccion.toFixed(2) + "x" : "—";
+      cashoutEl.textContent    = cashout     != null ? cashout.toFixed(2)    + "x" : "—";
+      bancaEl.textContent      = banca       != null ? "$" + banca.toFixed(2)      : "—";
 
-      // --- Banca ---
-      bancaEl.textContent = banca != null ? "$" + banca.toFixed(2) : "—";
+      if (ultimaRonda != null) {
+        ultimaEl.textContent  = ultimaRonda + "x";
+        ultimaEl.style.color  = ultimaRonda >= 5 ? "var(--green)" : ultimaRonda < 2 ? "var(--red)" : "#fff";
+      }
 
-      // --- Last rounds ---
+      // ── Analysis ──
+      if (patron) {
+        patronBadge.textContent = patron.replace(/_/g, " ");
+      }
+      applyRisk(riesgo);
+
+      // ── Pills (last 5 from server) ──
       const rondas = Array.isArray(ultimasRondas) ? ultimasRondas : [];
       roundsList.innerHTML = rondas.length
-        ? rondas.map(r => {
-            const cls = r >= 5 ? "high" : r < 2 ? "low" : "";
-            return `<span class="round-pill ${cls}">${r}x</span>`;
-          }).join("")
+        ? rondas.map(r => `<span class="round-pill ${pillClass(r)}">${r}x</span>`).join("")
         : "<span class='round-pill'>—</span>";
+
+      // ── Local history (last 20) ──
+      if (ultimaRonda != null) {
+        totalRondas++;
+        historialLocal.push(ultimaRonda);
+        if (historialLocal.length > MAX_HISTORY) historialLocal.shift();
+        updateChart();
+        addHistoryRow(ultimaRonda, totalRondas);
+        roundCounter.textContent = totalRondas;
+      }
     });
   </script>
 </body>
