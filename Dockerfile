@@ -16,6 +16,6 @@ COPY . .
 USER botuser
 
 # Expose port used by server.js (if needed)
-EXPOSE 3000
+EXPOSE 4000
 
-CMD ["node", "bot.js"]
+CMD ["node", "index.js"]

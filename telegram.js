@@ -28,4 +28,46 @@ async function sendNotification(message) {
   }
 }
 
-module.exports = { sendNotification };
+// NEW function — starts polling and adds command handlers
+function startTelegramBot() {
+  if (!bot) {
+    console.log("[Telegram] Bot no iniciado (configura TELEGRAM_TOKEN en .env)");
+    return;
+  }
+
+  // Start polling to receive messages
+  bot.startPolling();
+
+  // Handle polling errors without crashing
+  bot.on("polling_error", (err) => {
+    console.error("[Telegram] Error de polling:", err.message);
+  });
+
+  // /start command
+  bot.onText(/\/start/, (msg) => {
+    bot.sendMessage(msg.chat.id, "Bot activo 🔥");
+  });
+
+  // /help command
+  bot.onText(/\/help/, (msg) => {
+    bot.sendMessage(
+      msg.chat.id,
+      "🤖 *CRASH BOT — Comandos*\n\n" +
+        "/start — Verificar que el bot está activo\n" +
+        "/help — Ver esta ayuda\n\n" +
+        "El bot envía señales automáticamente cuando detecta patrones.",
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  // Respond to any other message with confirmation
+  bot.on("message", (msg) => {
+    // Skip if it's a command (already handled above)
+    if (msg.text && msg.text.startsWith("/")) return;
+    bot.sendMessage(msg.chat.id, "✅ Mensaje recibido");
+  });
+
+  console.log("[Telegram] Bot iniciado con polling — escuchando comandos");
+}
+
+module.exports = { sendNotification, startTelegramBot, bot };
