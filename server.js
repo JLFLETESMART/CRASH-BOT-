@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { sendNotification } = require("./telegram");
+const { sendNotification, startBot } = require("./telegram");
 const PragmaticConnector = require("./pragmatic-connector");
 
 const app = express();
@@ -340,6 +340,9 @@ const connector = new PragmaticConnector(
 // ── Inicialización ───────────────────────────────────────────────────────────
 
 (async () => {
+  console.log("[CRASH-BOT] Inicializando Telegram");
+  startBot();
+
   try {
     await sendNotification("🚀 Bot activo — conectando a High Flyer...");
   } catch (err) {
