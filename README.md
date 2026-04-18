@@ -43,6 +43,8 @@ npm install
 # edita .env directamente
 ```
 
+> 🔒 **Nota de seguridad:** nunca subas tu archivo `.env` al repositorio. Usa `.env.example` como plantilla, copia sus variables y completa tus credenciales solo en tu entorno local o en el gestor de secretos de tu plataforma.
+
 ---
 
 ## Configuración del archivo `.env`
@@ -158,4 +160,3 @@ Basado en: Promedio últimas 50 rondas: 5.30x
 | `generarPrediccion(patron)` | Genera predicción, retiro seguro y nivel de riesgo |
 | `enviarConControl(mensaje)` | Envía por Telegram con control anti-spam y anti-duplicados |
 | `ciclo()` | Loop principal: obtiene ronda, analiza y notifica |
-
