@@ -8,7 +8,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
+const HOST = "0.0.0.0";
 
 // --- Round distribution thresholds ---
 const ROUND_DIST = [
@@ -257,7 +258,7 @@ async function ciclo() {
 
   setInterval(ciclo, 5000);
 
-  server.listen(PORT, () => {
-    console.log(`🚀 Panel activo en http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`🚀 Panel activo en http://${HOST}:${PORT}`);
   });
 })();
