@@ -45,6 +45,50 @@ app.get("/api/extension-zip", (req, res) => {
   archive.finalize();
 });
 
+// ── Endpoint para obtener Chat ID real de Telegram ───────────────────────────
+app.get("/api/telegram-setup", async (req, res) => {
+  const token = process.env.TELEGRAM_TOKEN;
+  if (!token) return res.json({ error: "No hay TELEGRAM_TOKEN configurado" });
+
+  try {
+    const https = require("https");
+    const data = await new Promise((resolve, reject) => {
+      https.get(`https://api.telegram.org/bot${token}/getUpdates`, (r) => {
+        let body = "";
+        r.on("data", chunk => body += chunk);
+        r.on("end", () => resolve(JSON.parse(body)));
+      }).on("error", reject);
+    });
+
+    if (!data.ok) return res.json({ error: "Token inválido", detalle: data });
+
+    const updates = data.result || [];
+    if (updates.length === 0) {
+      return res.json({
+        instruccion: "⚠️ No hay mensajes. Envíale /start a tu bot en Telegram y vuelve a visitar esta página.",
+        token_ok: true
+      });
+    }
+
+    const chats = [...new Set(updates.map(u =>
+      u.message?.from?.id || u.channel_post?.chat?.id
+    ).filter(Boolean))];
+
+    res.json({
+      ok: true,
+      instruccion: "✅ Copia el primer número de 'chat_ids' y ponlo en el secreto TELEGRAM_CHAT_ID",
+      chat_ids: chats,
+      detalle: updates.slice(-3).map(u => ({
+        from: u.message?.from?.first_name || "?",
+        chat_id: u.message?.from?.id || u.channel_post?.chat?.id,
+        texto: u.message?.text || "(sin texto)"
+      }))
+    });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 // ── Endpoint de diagnóstico ──────────────────────────────────────────────────
 app.get("/status", (req, res) => {
   res.json({
@@ -313,5 +357,15 @@ const connector = new PragmaticConnector(
   server.listen(PORT, HOST, () => {
     console.log(`🚀 Panel activo en http://${HOST}:${PORT}`);
     console.log(`🔌 Endpoint extensión: POST /api/round`);
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[Server] Puerto ${PORT} ocupado, reintentando en 3s...`);
+      setTimeout(() => {
+        server.close();
+        server.listen(PORT, HOST);
+      }, 3000);
+    }
   });
 })();
