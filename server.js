@@ -3,6 +3,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const { sendNotification } = require("./telegram");
+const PragmaticConnector = require("./pragmatic-connector");
 
 const app = express();
 const server = http.createServer(app);
@@ -11,22 +12,13 @@ const io = new Server(server);
 const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
 
-// --- Round distribution thresholds ---
-const ROUND_DIST = [
-  { threshold: 0.50, min: 1,  range: 1  },  // 1.00 – 2.00
-  { threshold: 0.75, min: 2,  range: 3  },  // 2.00 – 5.00
-  { threshold: 0.88, min: 5,  range: 5  },  // 5.00 – 10.00
-  { threshold: 0.95, min: 10, range: 10 },  // 10.00 – 20.00
-  { threshold: 1.00, min: 20, range: 30 },  // 20.00 – 50.00
-];
-
 // --- Banca multipliers ---
 const BANCA_GAIN_MULTIPLIER = 1.02;
 const BANCA_LOSS_MULTIPLIER = 0.995;
 
 app.use(express.static("public"));
 
-// --- Historial de rondas ---
+// --- Historial de rondas reales ---
 let historial = [];
 const MAX_HISTORIAL = 200;
 
@@ -38,22 +30,22 @@ let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
 const INTERVALO_MIN_MS = 4000;
 
-/**
- * Simula una nueva ronda con distribución realista tipo Aviator.
- * @returns {number}
- */
-function obtenerNuevaRonda() {
-  const r = Math.random();
-  for (const { threshold, min, range } of ROUND_DIST) {
-    if (r < threshold) return +(min + Math.random() * range).toFixed(2);
-  }
-  return +(ROUND_DIST[ROUND_DIST.length - 1].min + Math.random() * ROUND_DIST[ROUND_DIST.length - 1].range).toFixed(2);
-}
+// --- Estado del bot ---
+let modoReal = false;
+let multiplicadorActual = null;
+
+// --- Ruta de estado / diagnóstico ---
+app.get("/status", (req, res) => {
+  res.json({
+    modoReal,
+    historialLength: historial.length,
+    ultimasRondas: historial.slice(-10),
+    connectorStatus: connector ? connector.getStatus() : null
+  });
+});
 
 /**
  * Analiza las últimas N rondas del historial.
- * @param {number[]} rondas
- * @returns {{ bajos: number, promedio: number, tendenciaSubida: boolean }}
  */
 function analizarRondas(rondas) {
   if (rondas.length === 0) return { bajos: 0, promedio: 0, tendenciaSubida: false };
@@ -76,7 +68,6 @@ function analizarRondas(rondas) {
 
 /**
  * Detecta el patrón actual en el historial de rondas.
- * @returns {{ patron: string, descripcion: string }}
  */
 function detectarPatron() {
   const ultimas50 = historial.slice(-50);
@@ -119,9 +110,7 @@ function detectarPatron() {
 }
 
 /**
- * Genera una predicción basada en el patrón detectado y el historial reciente.
- * @param {string} patron
- * @returns {{ prediccion: number, retiroSeguro: number, riesgo: string, nivel: string }}
+ * Genera una predicción basada en el patrón detectado.
  */
 function generarPrediccion(patron) {
   const ultimas20 = historial.slice(-20);
@@ -173,7 +162,6 @@ function generarPrediccion(patron) {
 
 /**
  * Envía una notificación por Telegram respetando el control anti-spam.
- * @param {string} mensaje
  */
 async function enviarConControl(mensaje) {
   if (mensaje === ultimoMensaje) return;
@@ -190,11 +178,10 @@ async function enviarConControl(mensaje) {
 }
 
 /**
- * Ciclo principal: obtiene nueva ronda, analiza patrones, actualiza banca y emite datos.
+ * Procesa una nueva ronda real o simulada.
  */
-async function ciclo() {
-  const nueva = obtenerNuevaRonda();
-  historial.push(nueva);
+async function procesarRonda(crashPoint) {
+  historial.push(crashPoint);
   if (historial.length > MAX_HISTORIAL) historial.shift();
 
   if (historial.length < 10) return;
@@ -212,24 +199,24 @@ async function ciclo() {
   const estadoPanel = nivel === "ALTA" ? "POSIBLE ALTA" : nivel;
 
   const payload = {
-    decision: {
-      estado: estadoPanel,
-      cashout: retiroSeguro
-    },
+    decision: { estado: estadoPanel, cashout: retiroSeguro },
     banca,
-    ultimaRonda: nueva,
+    ultimaRonda: crashPoint,
     ultimasRondas: historial.slice(-5),
     prediccion,
     riesgo,
-    patron
+    patron,
+    modoReal,
+    fuente: modoReal ? "🟢 DATOS REALES" : "🟡 SIMULACIÓN"
   };
 
   io.emit("data", payload);
 
+  // Notificaciones Telegram
   if (nivel === "ENTRAR") {
     const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
     const msg =
-      `🚨 *ENTRAR*\n\n` +
+      `🚨 *ENTRAR* ${modoReal ? "(Datos Reales)" : "(Simulación)"}\n\n` +
       `Predicción: *${prediccion}x*\n` +
       `Retiro seguro: *${retiroSeguro}x*\n` +
       `Riesgo: ${riesgo}\n\n` +
@@ -239,7 +226,7 @@ async function ciclo() {
   } else if (nivel === "ALTA") {
     const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
     const msg =
-      `🔥 *POSIBLE ALTA*\n\n` +
+      `🔥 *POSIBLE ALTA* ${modoReal ? "(Datos Reales)" : "(Simulación)"}\n\n` +
       `Se detecta patrón de subida.\n` +
       `Últimas rondas: ${ultimasStr}\n\n` +
       `Posible explosión > *${prediccion}x*.\n` +
@@ -248,17 +235,81 @@ async function ciclo() {
   }
 }
 
+// --- Simulación de ronda (fallback) ---
+const ROUND_DIST = [
+  { threshold: 0.50, min: 1,  range: 1  },
+  { threshold: 0.75, min: 2,  range: 3  },
+  { threshold: 0.88, min: 5,  range: 5  },
+  { threshold: 0.95, min: 10, range: 10 },
+  { threshold: 1.00, min: 20, range: 30 },
+];
+
+function obtenerRondaSimulada() {
+  const r = Math.random();
+  for (const { threshold, min, range } of ROUND_DIST) {
+    if (r < threshold) return +(min + Math.random() * range).toFixed(2);
+  }
+  return +(ROUND_DIST[ROUND_DIST.length - 1].min + Math.random() * ROUND_DIST[ROUND_DIST.length - 1].range).toFixed(2);
+}
+
+let simulacionTimer = null;
+
+function iniciarSimulacion() {
+  if (simulacionTimer) return;
+  console.log("[Bot] Iniciando modo SIMULACIÓN (fallback)");
+  simulacionTimer = setInterval(async () => {
+    if (!modoReal) {
+      await procesarRonda(obtenerRondaSimulada());
+    }
+  }, 5000);
+}
+
+function detenerSimulacion() {
+  if (simulacionTimer) {
+    clearInterval(simulacionTimer);
+    simulacionTimer = null;
+  }
+}
+
+// --- Conector Pragmatic Play ---
+const connector = new PragmaticConnector(
+  async (crashPoint) => {
+    if (!modoReal) {
+      modoReal = true;
+      detenerSimulacion();
+      console.log("[Bot] ✅ Modo REAL activado — datos de High Flyer en vivo");
+    }
+    await procesarRonda(crashPoint);
+  },
+  (multiplicador) => {
+    multiplicadorActual = multiplicador;
+    io.emit("multiplier", { value: multiplicador });
+  }
+);
+
 // --- Inicialización ---
 (async () => {
   try {
-    await sendNotification("🚀 Bot activo y analizando rondas.");
+    await sendNotification("🚀 Bot activo — conectando a High Flyer en tiempo real...");
   } catch (err) {
     console.error("[Telegram] Error al notificar inicio:", err.message);
   }
 
-  setInterval(ciclo, 5000);
+  // Iniciar conector a datos reales
+  connector.start();
+
+  // Iniciar simulación como fallback
+  iniciarSimulacion();
+
+  // Si en 30 segundos no hay datos reales, loguear aviso
+  setTimeout(() => {
+    if (!modoReal) {
+      console.warn("[Bot] ⚠️ Sin datos reales aún — usando simulación. Revisa /status para diagnóstico.");
+    }
+  }, 30000);
 
   server.listen(PORT, HOST, () => {
     console.log(`🚀 Panel activo en http://${HOST}:${PORT}`);
+    console.log(`🔍 Diagnóstico en http://${HOST}:${PORT}/status`);
   });
 })();

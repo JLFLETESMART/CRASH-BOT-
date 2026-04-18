@@ -176,6 +176,18 @@
       <div id="rounds-list"><span class="round-pill">—</span></div>
     </div>
 
+    <div id="fuente-badge" style="
+      margin-bottom: 14px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: rgba(255,204,0,0.15);
+      color: #ffcc00;
+      display: inline-block;
+    ">🟡 SIMULACIÓN</div>
+
     <div class="footer">
       <span id="status-dot"></span>
       <span id="status-text">Conectando…</span>
@@ -211,8 +223,23 @@
       statusText.textContent = "Desconectado";
     });
 
+    const fuenteBadge = document.getElementById("fuente-badge");
+
     socket.on("data", (payload) => {
-      const { decision, banca, ultimasRondas } = payload;
+      const { decision, banca, ultimasRondas, fuente, modoReal } = payload;
+
+      // --- Fuente de datos ---
+      if (fuenteBadge) {
+        if (modoReal) {
+          fuenteBadge.textContent = "🟢 DATOS REALES — High Flyer";
+          fuenteBadge.style.background = "rgba(0,255,136,0.15)";
+          fuenteBadge.style.color = "#00ff88";
+        } else {
+          fuenteBadge.textContent = "🟡 SIMULACIÓN";
+          fuenteBadge.style.background = "rgba(255,204,0,0.15)";
+          fuenteBadge.style.color = "#ffcc00";
+        }
+      }
       const estado = decision && decision.estado ? decision.estado : "ESPERAR";
       const cashout = decision && decision.cashout != null ? decision.cashout : null;
 
