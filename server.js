@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { sendNotification } = require("./telegram");
+const { sendNotification, startBot } = require("./telegram");
 
 const app = express();
 const server = http.createServer(app);
@@ -250,6 +250,7 @@ async function ciclo() {
 // --- Inicialización ---
 (async () => {
   console.log("[CRASH-BOT] Inicializando Telegram");
+  startBot();
   
   try {
     await sendNotification("🚀 Bot activo y analizando rondas.");

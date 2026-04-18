@@ -6,11 +6,17 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 
 let bot = null;
 
-// Verificar que el token está definido
-if (!token) {
-  console.error("[Telegram] ERROR: TELEGRAM_TOKEN no está definido en .env");
-} else {
-  // CAMBIO CLAVE: polling: true para recibir mensajes
+/**
+ * Starts the Telegram bot with polling enabled and registers message listeners.
+ * Call this once from the application entry point (e.g. server.js).
+ * Does nothing if TELEGRAM_TOKEN is not set.
+ */
+function startBot() {
+  if (!token) {
+    console.error("[Telegram] ERROR: TELEGRAM_TOKEN no está definido en .env");
+    return;
+  }
+
   bot = new TelegramBot(token, { polling: true });
   console.log("[Telegram] Bot iniciado");
   console.log("[Telegram] Polling activo");
@@ -21,15 +27,21 @@ if (!token) {
   });
 
   // Responder a /start
-  bot.onText(/\/start/, (msg) => {
+  bot.onText(/\/start/, async (msg) => {
     console.log("[Telegram] Comando /start recibido de chat:", msg.chat.id);
-    bot.sendMessage(msg.chat.id, "Bot activo 🔥");
+    try {
+      await bot.sendMessage(msg.chat.id, "Bot activo 🔥");
+    } catch (err) {
+      console.error("[Telegram] Error al responder a /start:", err.message);
+    }
   });
 
-  // Log de cualquier mensaje recibido
-  bot.on("message", (msg) => {
-    console.log("[Telegram] Mensaje recibido:", msg.text);
-  });
+  // Log de mensajes recibidos (solo en modo debug)
+  if (process.env.DEBUG === "true") {
+    bot.on("message", (msg) => {
+      console.log("[Telegram] Mensaje recibido:", msg.text || "[non-text]");
+    });
+  }
 }
 
 /**
@@ -50,4 +62,4 @@ async function sendNotification(message) {
   }
 }
 
-module.exports = { sendNotification };
+module.exports = { sendNotification, startBot };
