@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crash Bot — Panel</title>
+  <title>High Flyer Bot</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -12,210 +12,347 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
+      background: linear-gradient(135deg, #0a0a14 0%, #12121f 50%, #0a0a14 100%);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: #fff;
       padding: 20px;
     }
 
     .card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      padding: 40px 36px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 28px;
+      padding: 32px 28px;
       width: 100%;
-      max-width: 480px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7);
       text-align: center;
     }
 
-    .card h1 {
-      font-size: 1.2rem;
-      letter-spacing: 0.18em;
+    /* ── Título ── */
+    .titulo {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.45);
-      margin-bottom: 32px;
+      color: rgba(255,255,255,0.3);
+      margin-bottom: 20px;
     }
 
-    /* ── Signal block ── */
+    /* ── Badge fuente ── */
+    #fuente-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 24px;
+      transition: all 0.4s ease;
+      background: rgba(255,204,0,0.12);
+      color: #ffcc00;
+      border: 1px solid rgba(255,204,0,0.25);
+    }
+    #fuente-badge.real {
+      background: rgba(0,255,136,0.1);
+      color: #00ff88;
+      border-color: rgba(0,255,136,0.25);
+    }
+
+    /* ── Señal principal ── */
     #signal-block {
       margin-bottom: 28px;
     }
 
-    #signal-icon {
+    #signal-icon { font-size: 3.5rem; line-height: 1; margin-bottom: 10px; }
+
+    #signal-text {
       font-size: 3.2rem;
-      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      transition: all 0.4s ease;
+    }
+    #signal-text.entrar  { color: #00ff88; text-shadow: 0 0 28px rgba(0,255,136,0.5); }
+    #signal-text.esperar { color: #ffcc00; text-shadow: 0 0 28px rgba(255,204,0,0.4); }
+    #signal-text.posible { color: #ff7700; text-shadow: 0 0 28px rgba(255,119,0,0.5); }
+
+    #signal-sub {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
+      min-height: 18px;
+    }
+
+    /* ── Grid predicción ── */
+    .pred-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .pred-box {
+      background: rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 18px 12px;
+    }
+
+    .pred-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
       margin-bottom: 8px;
     }
 
-    #signal-text {
-      font-size: 3rem;
+    .pred-value {
+      font-size: 2rem;
       font-weight: 800;
-      letter-spacing: 0.06em;
-      transition: color 0.4s ease;
     }
 
-    #signal-text.entrar   { color: #00ff88; text-shadow: 0 0 24px rgba(0,255,136,0.5); }
-    #signal-text.esperar  { color: #ffcc00; text-shadow: 0 0 24px rgba(255,204,0,0.5); }
-    #signal-text.posible  { color: #ff6600; text-shadow: 0 0 24px rgba(255,102,0,0.5); }
+    #next-round-val { color: #00d4ff; }
+    #cashout-val    { color: #00ff88; }
 
-    /* ── Stats grid ── */
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 28px;
+    /* ── Barras de probabilidad ── */
+    .prob-section {
+      background: rgba(255,255,255,0.04);
+      border-radius: 16px;
+      padding: 16px 14px;
+      margin-bottom: 20px;
     }
 
-    .stat {
-      background: rgba(255, 255, 255, 0.07);
-      border-radius: 14px;
-      padding: 16px 12px;
-    }
-
-    .stat-label {
-      font-size: 0.7rem;
+    .prob-title {
+      font-size: 0.62rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-      margin-bottom: 6px;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 14px;
     }
 
-    .stat-value {
-      font-size: 1.6rem;
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .prob-row:last-child { margin-bottom: 0; }
+
+    .prob-name {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.6);
+      width: 72px;
+      flex-shrink: 0;
+      text-align: left;
+    }
+
+    .prob-bar-bg {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-baja  { background: linear-gradient(90deg, #f87171, #ef4444); }
+    .bar-media { background: linear-gradient(90deg, #ffcc00, #f59e0b); }
+    .bar-alta  { background: linear-gradient(90deg, #00ff88, #10b981); }
+
+    .prob-pct {
+      font-size: 0.78rem;
       font-weight: 700;
-      color: #fff;
+      width: 34px;
+      text-align: right;
+      color: rgba(255,255,255,0.6);
     }
 
-    #cashout-value { color: #00d4ff; }
-    #banca-value   { color: #a78bfa; }
-
-    /* ── Last rounds ── */
+    /* ── Últimas rondas ── */
     .rounds-section {
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 14px;
-      padding: 16px 14px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 20px;
     }
 
     .rounds-label {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255,255,255,0.35);
       margin-bottom: 10px;
     }
 
     #rounds-list {
       display: flex;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
     .round-pill {
-      background: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.09);
       border-radius: 20px;
-      padding: 5px 13px;
-      font-size: 0.95rem;
+      padding: 4px 12px;
+      font-size: 0.9rem;
       font-weight: 600;
       color: #e2e8f0;
     }
-
     .round-pill.high { color: #00ff88; background: rgba(0,255,136,0.12); }
     .round-pill.low  { color: #f87171; background: rgba(248,113,113,0.12); }
 
-    /* ── Footer ── */
+    /* ── Footer / conexión ── */
     .footer {
-      margin-top: 28px;
-      font-size: 0.68rem;
+      margin-bottom: 18px;
+      font-size: 0.65rem;
       color: rgba(255,255,255,0.2);
-      letter-spacing: 0.08em;
+      letter-spacing: 0.07em;
     }
 
     #status-dot {
       display: inline-block;
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       border-radius: 50%;
-      background: #888;
-      margin-right: 6px;
+      background: #555;
+      margin-right: 5px;
       vertical-align: middle;
       transition: background 0.3s;
     }
+    #status-dot.online { background: #00ff88; box-shadow: 0 0 7px #00ff88; }
 
-    #status-dot.online { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+    /* ── Botón predictor ── */
+    #btn-predictor {
+      display: block;
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      border-radius: 14px;
+      padding: 13px;
+      text-align: center;
+      letter-spacing: 0.04em;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ── Multiplicador en vivo ── */
+    #mult-live {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.25);
+      margin-bottom: 8px;
+      min-height: 18px;
+    }
 
     @media (max-width: 360px) {
-      #signal-text { font-size: 2.2rem; }
-      .stats { grid-template-columns: 1fr; }
+      #signal-text { font-size: 2.4rem; }
+      .pred-value  { font-size: 1.6rem; }
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>🤖 Crash Bot</h1>
+    <div class="titulo">✈️ High Flyer Bot</div>
+
+    <div id="fuente-badge">🟡 SIMULACIÓN</div>
 
     <div id="signal-block">
       <div id="signal-icon">⏳</div>
       <div id="signal-text" class="esperar">ESPERAR</div>
+      <div id="signal-sub">Analizando rondas…</div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-label">🎯 Cashout</div>
-        <div class="stat-value" id="cashout-value">—</div>
+    <div class="pred-grid">
+      <div class="pred-box">
+        <div class="pred-label">🎯 Próxima ronda</div>
+        <div class="pred-value" id="next-round-val">—</div>
       </div>
-      <div class="stat">
-        <div class="stat-label">💰 Banca</div>
-        <div class="stat-value" id="banca-value">—</div>
+      <div class="pred-box">
+        <div class="pred-label">✅ Retiro seguro</div>
+        <div class="pred-value" id="cashout-val">—</div>
+      </div>
+    </div>
+
+    <div class="prob-section">
+      <div class="prob-title">📊 Probabilidad próxima ronda</div>
+      <div class="prob-row">
+        <div class="prob-name">Baja (&lt;2x)</div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill bar-baja" id="bar-baja" style="width:50%"></div></div>
+        <div class="prob-pct" id="pct-baja">50%</div>
+      </div>
+      <div class="prob-row">
+        <div class="prob-name">Media (2-5x)</div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill bar-media" id="bar-media" style="width:25%"></div></div>
+        <div class="prob-pct" id="pct-media">25%</div>
+      </div>
+      <div class="prob-row">
+        <div class="prob-name">Alta (&gt;5x)</div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill bar-alta" id="bar-alta" style="width:12%"></div></div>
+        <div class="prob-pct" id="pct-alta">12%</div>
       </div>
     </div>
 
     <div class="rounds-section">
-      <div class="rounds-label">📊 Últimas rondas</div>
+      <div class="rounds-label">📋 Últimas rondas</div>
       <div id="rounds-list"><span class="round-pill">—</span></div>
     </div>
 
-    <div id="fuente-badge" style="
-      margin-bottom: 14px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      background: rgba(255,204,0,0.15);
-      color: #ffcc00;
-      display: inline-block;
-    ">🟡 SIMULACIÓN</div>
+    <div id="mult-live"></div>
 
     <div class="footer">
       <span id="status-dot"></span>
       <span id="status-text">Conectando…</span>
     </div>
 
-    <div style="margin-top:18px;">
-      <a href="/predictor.html"
-         style="display:block;background:linear-gradient(135deg,#00d4ff,#0099cc);color:#000;font-weight:800;font-size:0.95rem;text-decoration:none;border-radius:14px;padding:13px;text-align:center;letter-spacing:0.05em;">
-        🎯 Abrir Predictor Manual
-      </a>
-    </div>
+    <a href="/predictor.html" id="btn-predictor">
+      🎯 Predictor Manual — ingresa tus rondas
+    </a>
+
+    <a href="/extension-guide.html" style="
+      display:block;
+      margin-top:10px;
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.2);
+      color: #00ff88;
+      font-weight:700;
+      font-size:0.85rem;
+      text-decoration:none;
+      border-radius:14px;
+      padding:11px;
+      text-align:center;
+      letter-spacing:0.04em;
+    ">🔌 Instalar Extensión de Datos Reales</a>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
 
-    const signalIcon = document.getElementById("signal-icon");
-    const signalText = document.getElementById("signal-text");
-    const cashoutEl  = document.getElementById("cashout-value");
-    const bancaEl    = document.getElementById("banca-value");
-    const roundsList = document.getElementById("rounds-list");
-    const statusDot  = document.getElementById("status-dot");
-    const statusText = document.getElementById("status-text");
+    const signalIcon    = document.getElementById("signal-icon");
+    const signalText    = document.getElementById("signal-text");
+    const signalSub     = document.getElementById("signal-sub");
+    const nextRoundVal  = document.getElementById("next-round-val");
+    const cashoutVal    = document.getElementById("cashout-val");
+    const roundsList    = document.getElementById("rounds-list");
+    const statusDot     = document.getElementById("status-dot");
+    const statusText    = document.getElementById("status-text");
+    const fuenteBadge   = document.getElementById("fuente-badge");
+    const multLive      = document.getElementById("mult-live");
+    const barBaja       = document.getElementById("bar-baja");
+    const barMedia      = document.getElementById("bar-media");
+    const barAlta       = document.getElementById("bar-alta");
+    const pctBaja       = document.getElementById("pct-baja");
+    const pctMedia      = document.getElementById("pct-media");
+    const pctAlta       = document.getElementById("pct-alta");
 
     socket.on("connect", () => {
       statusDot.className = "online";
-      statusText.textContent = "En vivo";
+      statusText.textContent = "Conectado en vivo";
     });
 
     socket.on("disconnect", () => {
@@ -223,47 +360,55 @@
       statusText.textContent = "Desconectado";
     });
 
-    const fuenteBadge = document.getElementById("fuente-badge");
+    socket.on("multiplier", ({ value }) => {
+      multLive.textContent = "✈️ Volando: " + value + "x";
+    });
 
     socket.on("data", (payload) => {
-      const { decision, banca, ultimasRondas, fuente, modoReal } = payload;
+      const { decision, ultimasRondas, prediccion, riesgo, patron, modoReal, pBaja, pMedia, pAlta } = payload;
 
-      // --- Fuente de datos ---
-      if (fuenteBadge) {
-        if (modoReal) {
-          fuenteBadge.textContent = "🟢 DATOS REALES — High Flyer";
-          fuenteBadge.style.background = "rgba(0,255,136,0.15)";
-          fuenteBadge.style.color = "#00ff88";
-        } else {
-          fuenteBadge.textContent = "🟡 SIMULACIÓN";
-          fuenteBadge.style.background = "rgba(255,204,0,0.15)";
-          fuenteBadge.style.color = "#ffcc00";
-        }
+      // Fuente
+      if (modoReal) {
+        fuenteBadge.textContent = "🟢 DATOS REALES — High Flyer";
+        fuenteBadge.className = "real";
+      } else {
+        fuenteBadge.textContent = "🟡 SIMULACIÓN";
+        fuenteBadge.className = "";
       }
-      const estado = decision && decision.estado ? decision.estado : "ESPERAR";
-      const cashout = decision && decision.cashout != null ? decision.cashout : null;
 
-      // --- Signal ---
+      const estado  = decision?.estado || "ESPERAR";
+      const cashout = decision?.cashout ?? null;
+
+      // Señal
       signalText.textContent = estado;
       signalText.className = "";
       if (estado === "ENTRAR") {
         signalIcon.textContent = "🚨";
         signalText.classList.add("entrar");
+        signalSub.textContent = "¡Buena oportunidad detectada!";
       } else if (estado === "POSIBLE ALTA") {
         signalIcon.textContent = "🔥";
         signalText.classList.add("posible");
+        signalSub.textContent = "Posible ronda muy alta";
       } else {
         signalIcon.textContent = "⏳";
         signalText.classList.add("esperar");
+        signalSub.textContent = riesgo ? "Riesgo: " + riesgo : "Sin patrón claro";
       }
 
-      // --- Cashout ---
-      cashoutEl.textContent = cashout != null ? cashout + "x" : "—";
+      // Predicción próxima ronda
+      nextRoundVal.textContent = prediccion ? prediccion + "x" : "—";
+      cashoutVal.textContent   = cashout != null ? cashout + "x" : "—";
 
-      // --- Banca ---
-      bancaEl.textContent = banca != null ? "$" + banca.toFixed(2) : "—";
+      // Probabilidades
+      const pb = pBaja  ?? 50;
+      const pm = pMedia ?? 25;
+      const pa = pAlta  ?? 12;
+      barBaja.style.width  = pb + "%"; pctBaja.textContent  = pb + "%";
+      barMedia.style.width = pm + "%"; pctMedia.textContent = pm + "%";
+      barAlta.style.width  = pa + "%"; pctAlta.textContent  = pa + "%";
 
-      // --- Last rounds ---
+      // Últimas rondas
       const rondas = Array.isArray(ultimasRondas) ? ultimasRondas : [];
       roundsList.innerHTML = rondas.length
         ? rondas.map(r => {
@@ -271,6 +416,9 @@
             return `<span class="round-pill ${cls}">${r}x</span>`;
           }).join("")
         : "<span class='round-pill'>—</span>";
+
+      // Limpiar mult live cuando llega nueva ronda
+      multLive.textContent = "";
     });
   </script>
 </body>

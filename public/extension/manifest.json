@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "High Flyer Bot Connector",
+  "version": "1.0",
+  "description": "Envía datos reales del juego High Flyer al bot predictor",
+  "permissions": ["scripting", "storage", "activeTab"],
+  "host_permissions": [
+    "https://afun.com.mx/*",
+    "https://*.pragmaticplaylive.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://afun.com.mx/*", "https://*.pragmaticplaylive.net/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "High Flyer Bot"
+  }
+}

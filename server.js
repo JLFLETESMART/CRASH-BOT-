@@ -11,30 +11,41 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
-
-// --- Banca multipliers ---
-const BANCA_GAIN_MULTIPLIER = 1.02;
-const BANCA_LOSS_MULTIPLIER = 0.995;
+const EXTENSION_SECRET = process.env.EXTENSION_SECRET || "";
 
 app.use(express.static("public"));
+app.use(express.json());
 
-// --- Historial de rondas reales ---
+// --- Historial de rondas ---
 let historial = [];
 const MAX_HISTORIAL = 200;
 
-// --- Banca simulada ---
-let banca = 100;
-
-// --- Control anti-spam ---
+// --- Control anti-spam Telegram ---
 let ultimoMensaje = "";
 let ultimoTiempoMensaje = 0;
 const INTERVALO_MIN_MS = 4000;
 
-// --- Estado del bot ---
+// --- Estado del modo ---
 let modoReal = false;
 let multiplicadorActual = null;
 
-// --- Ruta de estado / diagnóstico ---
+// ── Endpoint: descargar extensión como ZIP ───────────────────────────────────
+app.get("/api/extension-zip", (req, res) => {
+  const archiver = require("archiver");
+  const path     = require("path");
+  const extDir   = path.join(__dirname, "public", "extension");
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", "attachment; filename=highflyer-bot-extension.zip");
+
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  archive.on("error", (err) => { res.status(500).end(); });
+  archive.pipe(res);
+  archive.directory(extDir, "highflyer-bot-extension");
+  archive.finalize();
+});
+
+// ── Endpoint de diagnóstico ──────────────────────────────────────────────────
 app.get("/status", (req, res) => {
   res.json({
     modoReal,
@@ -44,142 +55,148 @@ app.get("/status", (req, res) => {
   });
 });
 
-/**
- * Analiza las últimas N rondas del historial.
- */
-function analizarRondas(rondas) {
-  if (rondas.length === 0) return { bajos: 0, promedio: 0, tendenciaSubida: false };
+// ── Endpoint para la extensión del navegador ─────────────────────────────────
+app.post("/api/round", (req, res) => {
+  const { secret, crashPoint } = req.body;
 
-  const bajos = rondas.filter(x => x < 2).length;
+  if (!EXTENSION_SECRET || secret !== EXTENSION_SECRET) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+
+  const val = parseFloat(crashPoint);
+  if (isNaN(val) || val < 1.0 || val > 1000000) {
+    return res.status(400).json({ error: "Valor inválido" });
+  }
+
+  if (!modoReal) {
+    modoReal = true;
+    detenerSimulacion();
+    console.log("[Bot] ✅ Modo REAL activado vía extensión");
+  }
+
+  procesarRonda(+val.toFixed(2));
+  res.json({ ok: true, crashPoint: val });
+});
+
+// ── Análisis ─────────────────────────────────────────────────────────────────
+
+function analizarRondas(rondas) {
+  if (rondas.length === 0) return { bajos: 0, medios: 0, altos: 0, promedio: 0, tendenciaSubida: false };
+
+  const bajos  = rondas.filter(x => x < 2).length;
+  const medios = rondas.filter(x => x >= 2 && x < 5).length;
+  const altos  = rondas.filter(x => x >= 5).length;
   const promedio = rondas.reduce((a, b) => a + b, 0) / rondas.length;
 
-  const ultimos5 = rondas.slice(-5);
+  const ultimos5   = rondas.slice(-5);
   const anteriores5 = rondas.slice(-10, -5);
   let tendenciaSubida = false;
 
   if (anteriores5.length >= 3 && ultimos5.length >= 3) {
-    const promUltimos = ultimos5.reduce((a, b) => a + b, 0) / ultimos5.length;
+    const promUltimos    = ultimos5.reduce((a, b) => a + b, 0) / ultimos5.length;
     const promAnteriores = anteriores5.reduce((a, b) => a + b, 0) / anteriores5.length;
     tendenciaSubida = promUltimos < promAnteriores;
   }
 
-  return { bajos, promedio, tendenciaSubida };
+  return { bajos, medios, altos, promedio, tendenciaSubida };
 }
 
-/**
- * Detecta el patrón actual en el historial de rondas.
- */
 function detectarPatron() {
   const ultimas50 = historial.slice(-50);
   const ultimas20 = historial.slice(-20);
   const ultimas10 = historial.slice(-10);
 
-  const analisis10 = analizarRondas(ultimas10);
-  const analisis20 = analizarRondas(ultimas20);
-  const analisis50 = analizarRondas(ultimas50);
+  const an10 = analizarRondas(ultimas10);
+  const an20 = analizarRondas(ultimas20);
+  const an50 = analizarRondas(ultimas50);
 
-  if (analisis10.bajos >= 7) {
-    return {
-      patron: "RACHA_BAJA",
-      descripcion: `${analisis10.bajos} de las últimas 10 rondas fueron < 2x`
-    };
-  }
+  if (an10.bajos >= 7)
+    return { patron: "RACHA_BAJA", descripcion: `${an10.bajos} de las últimas 10 rondas fueron < 2x` };
 
-  if (analisis20.bajos >= 14) {
-    return {
-      patron: "FRECUENCIA_CAIDAS",
-      descripcion: `${analisis20.bajos} de las últimas 20 rondas fueron < 2x`
-    };
-  }
+  if (an20.bajos >= 14)
+    return { patron: "FRECUENCIA_CAIDAS", descripcion: `${an20.bajos} de las últimas 20 rondas fueron < 2x` };
 
-  if (analisis20.tendenciaSubida && analisis10.bajos >= 3) {
-    return {
-      patron: "TENDENCIA_SUBIDA",
-      descripcion: "Valores recientes bajos tras racha mixta — posible rebote"
-    };
-  }
+  if (an20.tendenciaSubida && an10.bajos >= 3)
+    return { patron: "TENDENCIA_SUBIDA", descripcion: "Valores recientes bajos tras racha mixta — posible rebote" };
 
-  if (analisis50.promedio > 5 && analisis10.bajos <= 2) {
-    return {
-      patron: "POSIBLE_ALTA",
-      descripcion: `Promedio últimas 50 rondas: ${analisis50.promedio.toFixed(2)}x`
-    };
-  }
+  if (an50.promedio > 5 && an10.bajos <= 2)
+    return { patron: "POSIBLE_ALTA", descripcion: `Promedio últimas 50 rondas: ${an50.promedio.toFixed(2)}x` };
 
   return { patron: "ESPERAR", descripcion: "Sin patrón claro en este momento" };
 }
 
-/**
- * Genera una predicción basada en el patrón detectado.
- */
 function generarPrediccion(patron) {
   const ultimas20 = historial.slice(-20);
-  const promedio = ultimas20.length > 0
-    ? ultimas20.reduce((a, b) => a + b, 0) / ultimas20.length
-    : 2;
+  const promedio  = ultimas20.length > 0 ? ultimas20.reduce((a, b) => a + b, 0) / ultimas20.length : 2;
 
   let prediccion, margen, riesgo, nivel;
 
   switch (patron) {
     case "RACHA_BAJA":
-      prediccion = Math.max(2.5, promedio * 1.5);
-      margen = 0.5;
-      riesgo = "Medio";
-      nivel = "ENTRAR";
-      break;
+      prediccion = Math.max(2.5, promedio * 1.5); margen = 0.5; riesgo = "Medio";     nivel = "ENTRAR"; break;
     case "FRECUENCIA_CAIDAS":
-      prediccion = Math.max(3, promedio * 1.8);
-      margen = 0.7;
-      riesgo = "Medio-Alto";
-      nivel = "ENTRAR";
-      break;
+      prediccion = Math.max(3,   promedio * 1.8); margen = 0.7; riesgo = "Medio-Alto"; nivel = "ENTRAR"; break;
     case "TENDENCIA_SUBIDA":
-      prediccion = Math.max(4, promedio * 2);
-      margen = 1.0;
-      riesgo = "Alto";
-      nivel = "ENTRAR";
-      break;
+      prediccion = Math.max(4,   promedio * 2.0); margen = 1.0; riesgo = "Alto";       nivel = "ENTRAR"; break;
     case "POSIBLE_ALTA":
-      prediccion = Math.max(8, promedio * 2.5);
-      margen = 2.0;
-      riesgo = "Muy Alto";
-      nivel = "ALTA";
-      break;
+      prediccion = Math.max(8,   promedio * 2.5); margen = 2.0; riesgo = "Muy Alto";   nivel = "ALTA";   break;
     default:
-      prediccion = promedio;
-      margen = 0.5;
-      riesgo = "Bajo";
-      nivel = "ESPERAR";
+      prediccion = promedio; margen = 0.5; riesgo = "Bajo"; nivel = "ESPERAR";
   }
 
   return {
-    prediccion: +prediccion.toFixed(2),
-    retiroSeguro: +(prediccion - margen).toFixed(2),
+    prediccion:    +prediccion.toFixed(2),
+    retiroSeguro:  +(prediccion - margen).toFixed(2),
     riesgo,
     nivel
   };
 }
 
-/**
- * Envía una notificación por Telegram respetando el control anti-spam.
- */
-async function enviarConControl(mensaje) {
-  if (mensaje === ultimoMensaje) return;
+function calcularProbabilidades() {
+  const ultimas = historial.slice(-10);
+  if (ultimas.length < 3) return { pBaja: 50, pMedia: 25, pAlta: 12 };
 
-  const tiempoTranscurrido = Date.now() - ultimoTiempoMensaje;
-  if (tiempoTranscurrido < INTERVALO_MIN_MS) {
-    await new Promise(r => setTimeout(r, INTERVALO_MIN_MS - tiempoTranscurrido));
+  const n     = ultimas.length;
+  const bajos = ultimas.filter(x => x < 2).length;
+  const altos = ultimas.filter(x => x >= 5).length;
+
+  const ratioBajos = bajos / n;
+  const ratioAltos = altos / n;
+
+  let pBaja = 50, pMedia = 25, pAlta = 12;
+
+  if (ratioBajos > 0.6) {
+    pBaja  = Math.max(20, 50 - (ratioBajos - 0.5) * 80);
+    pMedia = Math.min(45, 25 + (ratioBajos - 0.5) * 60);
+    pAlta  = Math.min(30, 12 + (ratioBajos - 0.5) * 40);
+  } else if (ratioAltos > 0.4) {
+    pBaja  = Math.min(70, 50 + (ratioAltos - 0.3) * 60);
+    pMedia = Math.max(15, 25 - (ratioAltos - 0.3) * 30);
+    pAlta  = Math.max(5,  12 - (ratioAltos - 0.3) * 25);
   }
 
-  ultimoMensaje = mensaje;
-  ultimoTiempoMensaje = Date.now();
+  const suma = pBaja + pMedia + pAlta;
+  pBaja  = Math.round(pBaja  / suma * 100);
+  pMedia = Math.round(pMedia / suma * 100);
+  pAlta  = 100 - pBaja - pMedia;
 
+  return { pBaja, pMedia, pAlta };
+}
+
+// ── Telegram ─────────────────────────────────────────────────────────────────
+
+async function enviarConControl(mensaje) {
+  if (mensaje === ultimoMensaje) return;
+  const transcurrido = Date.now() - ultimoTiempoMensaje;
+  if (transcurrido < INTERVALO_MIN_MS)
+    await new Promise(r => setTimeout(r, INTERVALO_MIN_MS - transcurrido));
+  ultimoMensaje      = mensaje;
+  ultimoTiempoMensaje = Date.now();
   await sendNotification(mensaje);
 }
 
-/**
- * Procesa una nueva ronda real o simulada.
- */
+// ── Procesamiento de ronda ───────────────────────────────────────────────────
+
 async function procesarRonda(crashPoint) {
   historial.push(crashPoint);
   if (historial.length > MAX_HISTORIAL) historial.shift();
@@ -188,54 +205,48 @@ async function procesarRonda(crashPoint) {
 
   const { patron, descripcion } = detectarPatron();
   const { prediccion, retiroSeguro, riesgo, nivel } = generarPrediccion(patron);
-
-  // Actualizar banca simulada
-  if (nivel === "ENTRAR") {
-    banca = +(banca * BANCA_GAIN_MULTIPLIER).toFixed(2);
-  } else if (nivel === "ESPERAR") {
-    banca = +(banca * BANCA_LOSS_MULTIPLIER).toFixed(2);
-  }
+  const { pBaja, pMedia, pAlta } = calcularProbabilidades();
 
   const estadoPanel = nivel === "ALTA" ? "POSIBLE ALTA" : nivel;
 
   const payload = {
-    decision: { estado: estadoPanel, cashout: retiroSeguro },
-    banca,
-    ultimaRonda: crashPoint,
+    decision:     { estado: estadoPanel, cashout: retiroSeguro },
+    ultimaRonda:  crashPoint,
     ultimasRondas: historial.slice(-5),
     prediccion,
     riesgo,
     patron,
     modoReal,
-    fuente: modoReal ? "🟢 DATOS REALES" : "🟡 SIMULACIÓN"
+    pBaja,
+    pMedia,
+    pAlta,
+    fuente: modoReal ? "REAL" : "SIM"
   };
 
   io.emit("data", payload);
 
-  // Notificaciones Telegram
   if (nivel === "ENTRAR") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
-    const msg =
+    const ultStr = historial.slice(-5).map(x => `${x}x`).join(", ");
+    await enviarConControl(
       `🚨 *ENTRAR* ${modoReal ? "(Datos Reales)" : "(Simulación)"}\n\n` +
-      `Predicción: *${prediccion}x*\n` +
+      `Predicción próxima ronda: *${prediccion}x*\n` +
       `Retiro seguro: *${retiroSeguro}x*\n` +
-      `Riesgo: ${riesgo}\n\n` +
-      `_Últimas rondas: ${ultimasStr}_\n` +
-      `_Patrón: ${descripcion}_`;
-    await enviarConControl(msg);
+      `Probabilidad alta (>5x): ${pAlta}%\n\n` +
+      `_Últimas: ${ultStr}_\n_Patrón: ${descripcion}_`
+    );
   } else if (nivel === "ALTA") {
-    const ultimasStr = historial.slice(-5).map(x => `${x}x`).join(", ");
-    const msg =
+    const ultStr = historial.slice(-5).map(x => `${x}x`).join(", ");
+    await enviarConControl(
       `🔥 *POSIBLE ALTA* ${modoReal ? "(Datos Reales)" : "(Simulación)"}\n\n` +
-      `Se detecta patrón de subida.\n` +
-      `Últimas rondas: ${ultimasStr}\n\n` +
-      `Posible explosión > *${prediccion}x*.\n` +
-      `_Basado en: ${descripcion}_`;
-    await enviarConControl(msg);
+      `Posible explosión > *${prediccion}x*\n` +
+      `Probabilidad alta (>5x): ${pAlta}%\n\n` +
+      `_Últimas: ${ultStr}_\n_Patrón: ${descripcion}_`
+    );
   }
 }
 
-// --- Simulación de ronda (fallback) ---
+// ── Simulación fallback ───────────────────────────────────────────────────────
+
 const ROUND_DIST = [
   { threshold: 0.50, min: 1,  range: 1  },
   { threshold: 0.75, min: 2,  range: 3  },
@@ -246,10 +257,9 @@ const ROUND_DIST = [
 
 function obtenerRondaSimulada() {
   const r = Math.random();
-  for (const { threshold, min, range } of ROUND_DIST) {
+  for (const { threshold, min, range } of ROUND_DIST)
     if (r < threshold) return +(min + Math.random() * range).toFixed(2);
-  }
-  return +(ROUND_DIST[ROUND_DIST.length - 1].min + Math.random() * ROUND_DIST[ROUND_DIST.length - 1].range).toFixed(2);
+  return +(ROUND_DIST.at(-1).min + Math.random() * ROUND_DIST.at(-1).range).toFixed(2);
 }
 
 let simulacionTimer = null;
@@ -258,26 +268,22 @@ function iniciarSimulacion() {
   if (simulacionTimer) return;
   console.log("[Bot] Iniciando modo SIMULACIÓN (fallback)");
   simulacionTimer = setInterval(async () => {
-    if (!modoReal) {
-      await procesarRonda(obtenerRondaSimulada());
-    }
+    if (!modoReal) await procesarRonda(obtenerRondaSimulada());
   }, 5000);
 }
 
 function detenerSimulacion() {
-  if (simulacionTimer) {
-    clearInterval(simulacionTimer);
-    simulacionTimer = null;
-  }
+  if (simulacionTimer) { clearInterval(simulacionTimer); simulacionTimer = null; }
 }
 
-// --- Conector Pragmatic Play ---
+// ── Conector Pragmatic Play ──────────────────────────────────────────────────
+
 const connector = new PragmaticConnector(
   async (crashPoint) => {
     if (!modoReal) {
       modoReal = true;
       detenerSimulacion();
-      console.log("[Bot] ✅ Modo REAL activado — datos de High Flyer en vivo");
+      console.log("[Bot] ✅ Modo REAL activado — WebSocket High Flyer");
     }
     await procesarRonda(crashPoint);
   },
@@ -287,29 +293,25 @@ const connector = new PragmaticConnector(
   }
 );
 
-// --- Inicialización ---
+// ── Inicialización ───────────────────────────────────────────────────────────
+
 (async () => {
   try {
-    await sendNotification("🚀 Bot activo — conectando a High Flyer en tiempo real...");
+    await sendNotification("🚀 Bot activo — conectando a High Flyer...");
   } catch (err) {
-    console.error("[Telegram] Error al notificar inicio:", err.message);
+    console.error("[Telegram] Error:", err.message);
   }
 
-  // Iniciar conector a datos reales
   connector.start();
-
-  // Iniciar simulación como fallback
   iniciarSimulacion();
 
-  // Si en 30 segundos no hay datos reales, loguear aviso
   setTimeout(() => {
-    if (!modoReal) {
-      console.warn("[Bot] ⚠️ Sin datos reales aún — usando simulación. Revisa /status para diagnóstico.");
-    }
+    if (!modoReal)
+      console.warn("[Bot] ⚠️ Sin datos reales — usando simulación. Abre el juego en tu navegador con la extensión activada.");
   }, 30000);
 
   server.listen(PORT, HOST, () => {
     console.log(`🚀 Panel activo en http://${HOST}:${PORT}`);
-    console.log(`🔍 Diagnóstico en http://${HOST}:${PORT}/status`);
+    console.log(`🔌 Endpoint extensión: POST /api/round`);
   });
 })();
