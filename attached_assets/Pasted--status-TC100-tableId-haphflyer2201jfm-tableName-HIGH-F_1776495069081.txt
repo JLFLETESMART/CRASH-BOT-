@@ -1,0 +1,85 @@
+{
+    "status": "TC100",
+    "tableId": "haphflyer2201jfm",
+    "tableName": "HIGH_FLYER",
+    "operatorGameId": "2201",
+    "params": {
+        "chip_color_codes": "#D9956F,#848179,#FB473C,#6EB100",
+        "table_closed": false,
+        "rtpType": "RTP_97",
+        "payout_bet_max_limit": 101897465000,
+        "dedicated_table": false,
+        "broadcaster_ws": "wss://broadcaster.pragmaticplaylive.net",
+        "chat_enabled": true,
+        "isPromoBetDataSendEnabled": true,
+        "isPrizeDropBetDataSendEnabled": true,
+        "game_type": "Crash",
+        "broadcaster_enabled": true,
+        "open_hours": "null",
+        "custommultipliercap": 100,
+        "euro_table_payout_max": 5000000000,
+        "chatVisibleByDefault": true,
+        "gs_address": "https://gs17.pragmaticplaylive.net",
+        "game_name": "HighFlyer",
+        "isInfiniteAutoPlayEnabled": false,
+        "per_bet_min_limit": 0.2,
+        "automated_messages_enabled": true,
+        "aamsSessionId": null,
+        "table_bet_min_limit": 0.2,
+        "ws_address": "wss://gs17.pragmaticplaylive.net/game",
+        "gamestats_address": "https://gamestats.***",
+        "autoBet": {
+            "remove": false,
+            "roundsCount": [
+                10,
+                25,
+                100
+            ],
+            "roundStepper": [
+                10,
+                25
+            ],
+            "maxRounds": 100
+        },
+        "openTime": null,
+        "table_type": "HighFlyer",
+        "stop_gs_broadcast": true,
+        "max_table_multipliers": "{\"MXN\":\"20\"}",
+        "chip_amounts": "0.20,1.00,10.00,50.00",
+        "show_pp_branding": true,
+        "max_multiplier": 1000000,
+        "idle_time_out_in_seconds": "{\"ES\":1200}",
+        "game_loader_key": "highflyer",
+        "frontend_Crash": "highflyer",
+        "freeBets_available": false,
+        "aamsTicket": null,
+        "table_bet_max_limit": 4000,
+        "per_bet_payout_max": 250000,
+        "session_launch_time_per_table": null,
+        "autoplay": {
+            "roundsCount": [
+                5,
+                10,
+                25,
+                100
+            ],
+            "roundStepper": [
+                2,
+                5,
+                10
+            ],
+            "maxRounds": 100,
+            "remove": false
+        },
+        "per_bet_max_limit": 2000,
+        "dedicatedLanguage": "",
+        "gametype_id": 22,
+        "operator_theme": "default",
+        "chipMinRangeList": "0.02,0.2,0.4,1.0,2.0,4.0,10.0,20.0,40.0,100.0,200.0,400.0,1000.0,2000.0,4000.0,10000.0,20000.0,40000.0,100000.0,200000.0"
+    },
+    "betCode": {
+        "1": 0.01,
+        "2": 0.01,
+        "999": 0.0
+    }
+}
