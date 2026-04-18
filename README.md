@@ -48,6 +48,7 @@ npm install
 ## Configuración del archivo `.env`
 
 Edita el archivo `.env` con tus credenciales de Telegram:
+**⚠️ Seguridad:** nunca subas ni hagas commit de `.env` al control de versiones.
 
 ```env
 # Telegram
@@ -158,4 +159,3 @@ Basado en: Promedio últimas 50 rondas: 5.30x
 | `generarPrediccion(patron)` | Genera predicción, retiro seguro y nivel de riesgo |
 | `enviarConControl(mensaje)` | Envía por Telegram con control anti-spam y anti-duplicados |
 | `ciclo()` | Loop principal: obtiene ronda, analiza y notifica |
-
