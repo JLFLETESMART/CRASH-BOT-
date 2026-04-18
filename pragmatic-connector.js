@@ -133,12 +133,11 @@ class PragmaticConnector {
       return;
     }
 
-    // Guardar muestra de mensajes crudos para diagnóstico (primeros 30)
-    if (this.rawLog.length < 30) {
-      this.rawLog.push(text.slice(0, 300));
-      if (this.rawLog.length <= 5 || this.rawLog.length % 10 === 0) {
-        console.log(`[PP RAW #${this.rawLog.length}]:`, text.slice(0, 300));
-      }
+    // Guardar muestra de mensajes crudos para diagnóstico (primeros 50, siempre)
+    this.rawLog.push(text.slice(0, 500));
+    if (this.rawLog.length > 50) this.rawLog.shift();
+    if (this.rawLog.length <= 10 || this.rawLog.length % 5 === 0) {
+      console.log(`[PP RAW #${this.rawLog.length}]:`, text.slice(0, 500));
     }
 
     let msg;
