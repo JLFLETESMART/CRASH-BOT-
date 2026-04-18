@@ -39,7 +39,8 @@ function startBot() {
   // Log de mensajes recibidos (solo en modo debug)
   if (process.env.DEBUG === "true") {
     bot.on("message", (msg) => {
-      console.log("[Telegram] Mensaje recibido:", msg.text || "[non-text]");
+      const tipo = msg.text ? "text" : msg.photo ? "photo" : msg.document ? "document" : "other";
+      console.log("[Telegram] Mensaje recibido — chat:", msg.chat.id, "tipo:", tipo);
     });
   }
 }
