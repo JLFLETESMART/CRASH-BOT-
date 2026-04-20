@@ -6,6 +6,7 @@ const logger = require("../logger");
 const BASE44_BASE_URL = (process.env.BASE44_BASE_URL || "").trim();
 const BASE44_APP_ID = (process.env.BASE44_APP_ID || "").trim();
 const BASE44_API_KEY = (process.env.BASE44_API_KEY || "").trim();
+const MAX_RETRY_ATTEMPTS = 2;
 
 let warnedMissingConfig = false;
 
@@ -27,18 +28,20 @@ const client = axios.create({
     "Content-Type": "application/json",
     "api_key": BASE44_API_KEY,
     "app_id": BASE44_APP_ID,
+    "x-app-id": BASE44_APP_ID,
+    "Authorization": `Bearer ${BASE44_API_KEY}`,
   },
 });
 
 async function withSimpleRetry(requestFn, operationName) {
   let lastError;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
     try {
       return await requestFn();
     } catch (error) {
       lastError = error;
       if (attempt === 1) {
-        logger.warn(`[Base44] ${operationName} falló (intento 1/2): ${error.message}`);
+        logger.warn(`[Base44] ${operationName} falló (intento 1/${MAX_RETRY_ATTEMPTS}): ${error.message}`);
       }
     }
   }
