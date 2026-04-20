@@ -11,9 +11,9 @@
     "lint": "eslint src/",
     "docker:build": "docker build -t crash-bot:latest .",
     "docker:run": "docker run --env-file .env -p 3000:3000 crash-bot:latest",
-    "docker:compose:up": "docker-compose up -d",
-    "docker:compose:down": "docker-compose down",
-    "docker:compose:logs": "docker-compose logs -f"
+    "docker:compose:up": "docker compose up -d",
+    "docker:compose:down": "docker compose down",
+    "docker:compose:logs": "docker compose logs -f"
   },
   "keywords": [],
   "author": "",
