@@ -9,6 +9,7 @@ const BASE44_API_KEY = (process.env.BASE44_API_KEY || "").trim();
 const MAX_RETRY_ATTEMPTS = 2;
 
 let warnedMissingConfig = false;
+let client = null;
 
 function isConfigured() {
   return Boolean(BASE44_BASE_URL && BASE44_APP_ID && BASE44_API_KEY);
@@ -21,17 +22,24 @@ function warnIfNotConfigured() {
   }
 }
 
-const client = axios.create({
-  baseURL: BASE44_BASE_URL,
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-    "api_key": BASE44_API_KEY,
-    "app_id": BASE44_APP_ID,
-    "x-app-id": BASE44_APP_ID,
-    "Authorization": `Bearer ${BASE44_API_KEY}`,
-  },
-});
+function getClient() {
+  if (!isConfigured()) return null;
+  if (client) return client;
+
+  client = axios.create({
+    baseURL: BASE44_BASE_URL,
+    timeout: 10000,
+    headers: {
+      "Content-Type": "application/json",
+      "api_key": BASE44_API_KEY,
+      "app_id": BASE44_APP_ID,
+      "x-app-id": BASE44_APP_ID,
+      "Authorization": `Bearer ${BASE44_API_KEY}`,
+    },
+  });
+
+  return client;
+}
 
 async function withSimpleRetry(requestFn, operationName) {
   let lastError;
@@ -54,10 +62,11 @@ async function guardarRonda(multiplicador, fuente, sesion) {
     warnIfNotConfigured();
     return null;
   }
+  const apiClient = getClient();
 
   return withSimpleRetry(
     async () => {
-      const response = await client.post("/entities/Ronda", {
+      const response = await apiClient.post("/entities/Ronda", {
         multiplicador,
         timestamp: new Date().toISOString(),
         fuente,
@@ -74,13 +83,14 @@ async function obtenerHistorial(limit = 50, skip = 0) {
     warnIfNotConfigured();
     return [];
   }
+  const apiClient = getClient();
 
   const safeLimit = Number.isFinite(Number(limit)) ? Number(limit) : 50;
   const safeSkip = Number.isFinite(Number(skip)) ? Number(skip) : 0;
 
   const data = await withSimpleRetry(
     async () => {
-      const response = await client.get("/entities/Ronda", {
+      const response = await apiClient.get("/entities/Ronda", {
         params: {
           limit: safeLimit,
           skip: safeSkip,
@@ -100,12 +110,13 @@ async function guardarRondasBulk(rondas) {
     warnIfNotConfigured();
     return [];
   }
+  const apiClient = getClient();
 
   if (!Array.isArray(rondas) || rondas.length === 0) return [];
 
   return withSimpleRetry(
     async () => {
-      const response = await client.post("/entities/Ronda/bulk", rondas);
+      const response = await apiClient.post("/entities/Ronda/bulk", rondas);
       return response.data;
     },
     "guardarRondasBulk"
