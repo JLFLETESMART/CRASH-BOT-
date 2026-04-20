@@ -1,13 +1,16 @@
 # CRASH-BOT 🤖
 
-Bot predictor de rondas tipo Aviator con notificaciones inteligentes por Telegram.
+Bot predictor de rondas tipo Aviator con notificaciones inteligentes por Telegram.  
+Sistema de producción profesional con Docker, logging avanzado y persistencia de datos.
 
 ---
 
 ## ¿Qué hace?
 
-- **`bot.js`** – Analiza el historial de rondas tipo Aviator, detecta patrones (rachas bajas, frecuencia de caídas, tendencias de subida) y envía señales **ENTRAR** o **POSIBLE ALTA** por Telegram.
-- **`telegram.js`** – Módulo de notificaciones. Gestiona el envío de mensajes con control de errores.
+- Analiza el historial de rondas tipo Aviator y detecta patrones estadísticos.
+- Envía señales **ENTRAR** o **POSIBLE ALTA** por Telegram con control anti-spam.
+- Corre 24/7 con auto-restart, manejo robusto de errores y persistencia SQLite.
+- Expone un endpoint `/health` para monitoreo.
 
 ---
 
@@ -24,36 +27,60 @@ El bot analiza las últimas **10, 20 y 50 rondas** y detecta los siguientes patr
 
 ---
 
-## Instalación
+## Estructura del proyecto
+
+```
+src/
+├── config/           # Configuración centralizada y validación de env vars
+├── services/
+│   ├── BotService.js       # Lógica principal del bot
+│   ├── TelegramService.js  # Envío de notificaciones Telegram
+│   └── DatabaseService.js  # Persistencia SQLite
+├── logger/           # Winston – logs en consola y archivo con rotación
+├── utils/
+│   └── retry.js      # Reintentos con exponential backoff
+├── middlewares/
+│   └── errorHandler.js # Manejo global de errores y señales del SO
+└── index.js          # Punto de entrada + servidor HTTP /health
+```
+
+---
+
+## Instalación rápida
 
 ### Requisitos
-- [Node.js](https://nodejs.org/) 18 o superior
+- [Node.js](https://nodejs.org/) 20 LTS
+- (Opcional) [Docker](https://www.docker.com/) + Docker Compose para producción
 
 ### Pasos
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/JLFLETESMART/CRASH-BOT-
+git clone https://github.com/JLFLETESMART/CRASH-BOT-.git
 cd CRASH-BOT-
 
 # 2. Instalar dependencias
 npm install
 
 # 3. Configurar variables de entorno
-# edita .env directamente
+cp .env.example .env
+# Edita .env con tus credenciales reales
 ```
 
 ---
 
 ## Configuración del archivo `.env`
 
-Edita el archivo `.env` con tus credenciales de Telegram:
-
 ```env
-# Telegram
-TELEGRAM_TOKEN=token_de_tu_bot_de_telegram
+TELEGRAM_TOKEN=token_de_tu_bot
 TELEGRAM_CHAT_ID=tu_chat_id
+NODE_ENV=production
+PORT=3000
+LOG_LEVEL=info
+DATABASE_URL=./data/crash-bot.db
 ```
+
+Copia `.env.example` como referencia — contiene todas las variables disponibles con sus descripciones.
 
 ### Cómo obtener el token de Telegram
 
@@ -64,21 +91,48 @@ TELEGRAM_CHAT_ID=tu_chat_id
 ### Cómo obtener tu Chat ID
 
 1. Inicia una conversación con tu bot (envía `/start`).
-2. Visita en el navegador:
-   ```
-   https://api.telegram.org/bot<TU_TOKEN>/getUpdates
-   ```
-3. Busca el campo `"chat":{"id":...}` en la respuesta JSON — ese es tu `TELEGRAM_CHAT_ID`.
+2. Visita: `https://api.telegram.org/bot<TU_TOKEN>/getUpdates`
+3. Busca el campo `"chat":{"id":...}` en la respuesta JSON.
 
 ---
 
 ## Ejecución
 
 ```bash
+# Modo producción
 npm start
+
+# Modo desarrollo (auto-reload con nodemon)
+npm run dev
 ```
 
-El bot iniciará, enviará `🚀 Bot activo y analizando rondas.` por Telegram y comenzará a analizar cada 5 segundos.
+El bot iniciará y enviará `🚀 Bot iniciado correctamente` por Telegram.  
+El health check estará disponible en `http://localhost:3000/health`.
+
+---
+
+## Docker (recomendado para producción)
+
+```bash
+# Construir imagen
+npm run docker:build
+
+# Iniciar con Docker Compose (background)
+npm run docker:compose:up
+
+# Ver logs
+npm run docker:compose:logs
+
+# Detener
+npm run docker:compose:down
+```
+
+---
+
+## Despliegue en VPS
+
+Para despliegue en producción real (DigitalOcean, Linode, Hetzner, etc.)  
+consulta la guía completa: **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**
 
 ---
 
@@ -86,7 +140,8 @@ El bot iniciará, enviará `🚀 Bot activo y analizando rondas.` por Telegram y
 
 ### Al iniciar
 ```
-🚀 Bot activo y analizando rondas.
+🚀 Bot iniciado correctamente
+Analizando rondas en tiempo real.
 ```
 
 ### Señal de entrada
@@ -121,41 +176,31 @@ Basado en: Promedio últimas 50 rondas: 5.30x
 
 ---
 
-## Despliegue gratuito (sin costos)
+## Scripts disponibles
 
-### Opción 1 – Replit (recomendado para empezar)
-
-1. Crea una cuenta en [replit.com](https://replit.com).
-2. Crea un nuevo Repl de tipo **Node.js**.
-3. Sube los archivos del proyecto (o importa desde GitHub).
-4. En la sección **Secrets** (ícono de candado), añade:
-   - `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
-5. En la consola ejecuta `npm install && npm start`.
-6. Para mantenerlo activo 24/7 usa [UptimeRobot](https://uptimerobot.com).
-
-### Opción 2 – Glitch
-
-1. Crea una cuenta en [glitch.com](https://glitch.com).
-2. Crea un nuevo proyecto Node.js e importa el repositorio.
-3. Añade las variables de entorno en el archivo `.env` de Glitch.
-4. El proyecto se ejecuta automáticamente.
-
-### Opción 3 – Railway (500 horas gratis al mes)
-
-1. Crea una cuenta en [railway.app](https://railway.app).
-2. Conecta tu repositorio de GitHub.
-3. Añade las variables de entorno en la sección **Variables**.
-4. Railway detecta automáticamente que es Node.js y ejecuta `npm start`.
+| Script | Descripción |
+|---|---|
+| `npm start` | Inicia el bot en producción |
+| `npm run dev` | Inicia con nodemon (auto-reload) |
+| `npm test` | Verifica que todos los módulos cargan correctamente |
+| `npm run build` | Valida la sintaxis de todo el código fuente |
+| `npm run lint` | Ejecuta ESLint en `src/` |
+| `npm run docker:build` | Construye la imagen Docker |
+| `npm run docker:compose:up` | Inicia con Docker Compose |
+| `npm run docker:compose:down` | Detiene Docker Compose |
+| `npm run docker:compose:logs` | Muestra logs en vivo |
 
 ---
 
-## Módulos del bot
+## Módulos principales
 
-| Función | Descripción |
+| Módulo | Descripción |
 |---|---|
-| `analizarRondas(rondas)` | Calcula bajos, promedio y tendencia de una lista de rondas |
-| `detectarPatron()` | Evalúa el historial y devuelve el patrón activo |
-| `generarPrediccion(patron)` | Genera predicción, retiro seguro y nivel de riesgo |
-| `enviarConControl(mensaje)` | Envía por Telegram con control anti-spam y anti-duplicados |
-| `ciclo()` | Loop principal: obtiene ronda, analiza y notifica |
+| `BotService.start()` | Inicia el bot y pone en marcha el ciclo principal de análisis |
+| `BotService.stop()` | Detiene la ejecución del bot de forma controlada |
+| `BotService.getStatus()` | Devuelve el estado actual del bot (usado por `/health` y el auto-check) |
+| `BotService` (lógica interna) | Analiza rondas, detecta patrones y genera predicciones mediante helpers internos no expuestos como API pública |
+| `TelegramService.sendNotification()` | Envía por Telegram con retry automático |
+| `DatabaseService.saveRound()` | Persiste cada ronda en SQLite |
+| `retry()` | Reintentos con exponential backoff |
 

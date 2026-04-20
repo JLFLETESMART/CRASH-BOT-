@@ -1,0 +1,49 @@
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Environment files (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Data / SQLite
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# CI
+.github/
+
+# Test artefacts
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Images used for development
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# Build artefacts
+dist/
+build/

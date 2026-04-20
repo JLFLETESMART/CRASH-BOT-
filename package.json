@@ -1,11 +1,19 @@
 {
   "name": "crash-bot",
-  "version": "1.0.0",
-  "description": "Crash game trading bot with Telegram notifications",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "Crash game prediction bot with Telegram notifications – production-ready",
+  "main": "src/index.js",
   "scripts": {
-    "test": "node -e \"require('./telegram'); console.log('OK')\"",
-    "start": "node server.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "node -e \"require('./src/config'); require('./src/logger'); require('./src/utils/retry'); console.log('OK – all modules load correctly')\"",
+    "build": "node scripts/validate-syntax.js",
+    "lint": "eslint src/",
+    "docker:build": "docker build -t crash-bot:latest .",
+    "docker:run": "docker run --env-file .env -p 3000:3000 crash-bot:latest",
+    "docker:compose:up": "docker compose up -d",
+    "docker:compose:down": "docker compose down",
+    "docker:compose:logs": "docker compose logs -f"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +22,7 @@
   "dependencies": {
     "archiver": "^7.0.1",
     "axios": "^1.15.0",
+    "better-sqlite3": "^9.4.3",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "fs": "^0.0.1-security",
@@ -25,6 +34,12 @@
     "socket.io": "^4.8.3",
     "technicalindicators": "^3.1.0",
     "tesseract.js": "^5.0.4",
+    "winston": "^3.11.0",
     "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "nodemon": "^3.1.0"
   }
 }
+
