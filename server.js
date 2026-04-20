@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const { sendNotification, startBot } = require("./telegram");
 const PragmaticConnector = require("./pragmatic-connector");
 const Base44Service = require("./src/services/Base44Service");
+const logger = require("./src/logger");
 
 const app = express();
 const server = http.createServer(app);
@@ -260,7 +261,7 @@ async function procesarRonda(crashPoint) {
     modoReal ? "ocr" : "bot",
     process.env.BASE44_SESION || undefined
   ).catch((error) => {
-    console.warn("[Base44] No se pudo guardar ronda:", error.message);
+    logger.warn(`[Base44] No se pudo guardar ronda: ${error.message}`);
   });
 
   if (historial.length < 10) return;
