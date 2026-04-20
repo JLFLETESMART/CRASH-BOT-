@@ -4,6 +4,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { sendNotification, startBot } = require("./telegram");
 const PragmaticConnector = require("./pragmatic-connector");
+const Base44Service = require("./src/services/Base44Service");
+const logger = require("./src/logger");
 
 const app = express();
 const server = http.createServer(app);
@@ -120,6 +122,15 @@ app.post("/api/round", (req, res) => {
 
   procesarRonda(+val.toFixed(2));
   res.json({ ok: true, crashPoint: val });
+});
+
+app.get("/api/historial-base44", async (req, res) => {
+  try {
+    const historialBase44 = await Base44Service.obtenerHistorial(50, 0);
+    res.json({ ok: true, total: historialBase44.length, data: historialBase44 });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 // ── Análisis ─────────────────────────────────────────────────────────────────
@@ -244,6 +255,14 @@ async function enviarConControl(mensaje) {
 async function procesarRonda(crashPoint) {
   historial.push(crashPoint);
   if (historial.length > MAX_HISTORIAL) historial.shift();
+
+  Base44Service.guardarRonda(
+    crashPoint,
+    modoReal ? "ocr" : "bot",
+    process.env.BASE44_SESION || undefined
+  ).catch((error) => {
+    logger.warn(`[Base44] No se pudo guardar ronda: ${error.message}`);
+  });
 
   if (historial.length < 10) return;
 
