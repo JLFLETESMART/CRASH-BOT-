@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 280px;
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #fff;
+      padding: 16px;
+    }
+    h2 {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .field { margin-bottom: 12px; }
+    label {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.85rem;
+      padding: 9px 10px;
+      outline: none;
+    }
+    input:focus { border-color: rgba(0,212,255,0.5); }
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 10px;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    #msg {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      text-align: center;
+      min-height: 18px;
+      color: #00ff88;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.4);
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+    .dot.ok { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+    .dot.err { background: #f87171; }
+  </style>
+</head>
+<body>
+  <h2>✈️ High Flyer Bot</h2>
+
+  <div class="field">
+    <label>URL del Bot</label>
+    <input id="botUrl" type="url" placeholder="https://tu-bot.replit.app"/>
+  </div>
+
+  <div class="field">
+    <label>Clave Secreta</label>
+    <input id="botSecret" type="password" placeholder="Tu clave secreta"/>
+  </div>
+
+  <button id="saveBtn">💾 Guardar y Probar</button>
+
+  <div id="msg"></div>
+
+  <div class="status-row">
+    <div class="dot" id="connDot"></div>
+    <span id="connText">Sin configurar</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

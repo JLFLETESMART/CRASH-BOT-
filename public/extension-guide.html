@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Guía de la Extensión — High Flyer Bot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0a0a14, #12121f);
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      padding: 24px 16px;
+    }
+    .container { max-width: 560px; margin: 0 auto; }
+    h1 {
+      font-size: 1.1rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .step {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px 18px;
+      margin-bottom: 14px;
+    }
+    .step-num {
+      display: inline-block;
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      color: #000;
+      font-weight: 900;
+      font-size: 0.75rem;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .step h3 {
+      display: inline;
+      font-size: 0.95rem;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .step p {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.55;
+    }
+    .step code {
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+      padding: 2px 6px;
+      font-size: 0.82rem;
+      color: #00d4ff;
+    }
+    .btn-download {
+      display: block;
+      background: linear-gradient(135deg, #00ff88, #10b981);
+      color: #000;
+      font-weight: 800;
+      font-size: 1rem;
+      text-decoration: none;
+      border-radius: 14px;
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(0,255,136,0.12);
+      color: #00ff88;
+      margin-top: 8px;
+    }
+    .footer-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.75rem;
+    }
+    .footer-link a { color: rgba(255,255,255,0.35); text-decoration: none; }
+    img.screenshot {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .secret-box {
+      background: rgba(0,212,255,0.07);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      font-size: 0.82rem;
+      color: #00d4ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✈️ Guía de la Extensión</h1>
+
+    <a class="btn-download" href="/extension.zip" id="dlBtn">
+      ⬇️ Descargar Extensión (.zip)
+    </a>
+
+    <div class="step">
+      <span class="step-num">1</span>
+      <h3>Descarga y descomprime</h3>
+      <p>Haz clic en el botón de arriba para descargar el archivo <code>extension.zip</code>. Descomprímelo en una carpeta de tu computadora.</p>
+    </div>
+
+    <div class="step">
+      <span class="step-num">2</span>
+      <h3>Instala en Chrome</h3>
+      <p>
+        Abre Chrome y ve a <code>chrome://extensions</code><br><br>
+        Activa el modo <strong>"Desarrollador"</strong> (interruptor arriba a la derecha).<br><br>
+        Haz clic en <strong>"Cargar descomprimida"</strong> y selecciona la carpeta que descomprimiste.
+      </p>
+      <div class="badge">✅ Compatible con Chrome, Edge, Brave</div>
+    </div>
+
+    <div class="step">
+      <span class="step-num">3</span>
+      <h3>Configura la extensión</h3>
+      <p>
+        Haz clic en el ícono de la extensión (<strong>✈️ High Flyer Bot</strong>) en la barra de herramientas de Chrome.<br><br>
+        Rellena los dos campos:
+      </p>
+      <div class="secret-box">
+        <strong>URL del Bot:</strong> la dirección de esta página (sin la ruta, ej: <code>https://crash-bot.replit.app</code>)<br><br>
+        <strong>Clave Secreta:</strong> la misma clave que configuraste en los secretos del bot
+      </div>
+      <p style="margin-top:10px">Haz clic en <strong>"Guardar y Probar"</strong> — debería decir "Bot conectado correctamente".</p>
+    </div>
+
+    <div class="step">
+      <span class="step-num">4</span>
+      <h3>Abre el juego y listo</h3>
+      <p>
+        Ve a <code>afun.com.mx</code> y abre el juego <strong>High Flyer</strong>.<br><br>
+        La extensión detecta automáticamente cada ronda que termina y envía el resultado al bot.<br><br>
+        En el panel principal verás el badge cambiar de <strong style="color:#ffcc00">🟡 SIMULACIÓN</strong> a <strong style="color:#00ff88">🟢 DATOS REALES</strong>.
+      </p>
+    </div>
+
+    <div class="footer-link">
+      <a href="/">← Volver al Panel Principal</a>
+    </div>
+  </div>
+
+  <script>
+    // Generar el zip de la extensión al hacer clic
+    document.getElementById('dlBtn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      window.location.href = '/api/extension-zip';
+    });
+  </script>
+</body>
+</html>

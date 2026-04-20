@@ -50,3 +50,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Use dumb-init as PID 1 to forward signals correctly
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "src/index.js"]
+
