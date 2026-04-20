@@ -33,8 +33,6 @@ function getClient() {
       "Content-Type": "application/json",
       "api_key": BASE44_API_KEY,
       "app_id": BASE44_APP_ID,
-      "x-app-id": BASE44_APP_ID,
-      "Authorization": `Bearer ${BASE44_API_KEY}`,
     },
   });
 
@@ -50,6 +48,7 @@ async function withSimpleRetry(requestFn, operationName) {
       lastError = error;
       if (attempt === 1) {
         logger.warn(`[Base44] ${operationName} falló (intento 1/${MAX_RETRY_ATTEMPTS}): ${error.message}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
   }
